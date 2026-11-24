@@ -1,0 +1,120 @@
+# soho-monitor configuration example.
+# Copy it to ~/.config/soho-monitor/config.yaml (or point $SOHO_MONITOR_CONFIG at your own file, e.g. one
+# versioned in your dotfiles). The app watches the file and reloads it on save; an invalid file is reported in the
+# panel and the menu, and the last valid configuration stays in use. Unknown keys are reported as warnings.
+
+disk:
+  # Minutes between two automatic scans (1 to 1440). A full pass reads every listed folder with `du` at low
+  # priority and can take several minutes. "Rescan now" in the menu starts one at once.
+  scan_interval_minutes: 30
+
+  # Colour of the free-space pill: orange below warning_below_percent, red below critical_below_percent
+  # (percent of the disk; critical must be lower than warning).
+  free_space:
+    warning_below_percent: 20
+    critical_below_percent: 10
+
+  # Categories, measured in this order. Each one has:
+  #   group   colour in the bar and chip in the legend; several categories can share a group
+  #   label   line in the group's detail (defaults to the group's name)
+  #   paths   folders or files; `~` and globs (`*`, `?`, `[...]`) allowed; quote a path that starts with `*`, `&`,
+  #           `!`, `[` or `{` (YAML syntax), spaces need no quotes
+  #   source  instead of paths: `ios-runtimes` (iOS simulator runtimes, stored outside the home folder, size
+  #           reported by `xcrun simctl runtime list -j`)
+  #
+  # A path counted by an EARLIER category is subtracted from the paths that contain it: list the most specific
+  # first (DerivedData before ~/Library/Developer). A path inside one already counted adds nothing.
+  # "macOS" (the non-Data volumes of the startup container) and "Other" (used − macOS − everything counted) are
+  # computed by the app: these two group names are reserved.
+  # Without Full Disk Access for the app, protected folders (Mail, Messages, other apps' containers) are measured
+  # partially: their chip shows ⚠︎.
+  categories:
+    - group: Dev
+      label: Test simulators
+      paths: [~/Library/Developer/XCTestDevices]
+
+    - group: Dev
+      label: Simulators
+      paths: [~/Library/Developer/CoreSimulator]
+
+    - group: Dev
+      label: iOS runtimes
+      source: ios-runtimes
+
+    - group: Dev
+      label: DerivedData
+      paths: [~/Library/Developer/Xcode/DerivedData]
+
+    - group: Dev
+      label: Xcode other
+      paths: [~/Library/Developer]
+
+    - group: Dev
+      label: Agent work
+      paths: [~/agent-work]
+
+    - group: Dev
+      label: Git repos
+      paths: [~/Git]
+
+    - group: Dev
+      label: Homebrew
+      paths:
+        - /opt/homebrew
+        - ~/Library/Caches/Homebrew
+
+    - group: Dev
+      label: Tool caches
+      paths:
+        - ~/.cache
+        - ~/.npm
+        - ~/.cargo
+        - ~/.gradle
+        - ~/.m2
+        - ~/Library/Caches/CocoaPods
+        - ~/Library/Caches/org.carthage.CarthageKit
+
+    - group: Cloud
+      label: Dropbox
+      paths: [~/Library/CloudStorage/Dropbox*]
+
+    - group: Cloud
+      label: iCloud Drive
+      paths: [~/Library/Mobile Documents]
+
+    - group: Cloud
+      label: Other cloud
+      paths: [~/Library/CloudStorage]
+
+    - group: Photos
+      paths: [~/Pictures]
+
+    - group: Documents
+      paths:
+        - ~/Documents
+        - ~/Desktop
+        - ~/Downloads
+
+    - group: Mail & Messages
+      paths:
+        - ~/Library/Mail
+        - ~/Library/Messages
+
+    - group: Applications
+      paths:
+        - /Applications
+        - ~/Applications
+
+    - group: App data
+      label: Claude
+      paths: [~/Library/Application Support/Claude]
+
+    - group: App data
+      label: Other apps
+      paths:
+        - ~/Library/Application Support
+        - ~/Library/Containers
+        - ~/Library/Group Containers
+
+    - group: Caches
+      paths: [~/Library/Caches]
