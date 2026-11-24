@@ -90,7 +90,21 @@ final class AppModel {
         scheduleTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(max(0, next.timeIntervalSinceNow)))
             guard !Task.isCancelled, let self else { return }
-            await self.scan()
+            await self.scanIfDue()
+        }
+    }
+
+    /// Automatic scans only: adopt a newer cache first (written by `SohoMonitor --scan`), then scan only if it is
+    /// still due.
+    private func scanIfDue() async {
+        if let cached = store.load(), cached.updated > (snapshot?.updated ?? .distantPast) { snapshot = cached }
+        let next = ScanSchedule.nextScan(
+            lastUpdated: snapshot?.updated, lastAttempt: lastAttempt, intervalMinutes: disk.scanIntervalMinutes,
+            now: .now)
+        if next.timeIntervalSinceNow > 1 {
+            schedule()
+        } else {
+            await scan()
         }
     }
 
@@ -117,8 +131,9 @@ final class AppModel {
         case .failed(let message):
             lastScanError = message
         case .alreadyRunning:
-            // Another process (`SohoMonitor --scan`) holds the lock: its result lands in the shared cache.
-            if let cached = store.load(), cached.updated > (snapshot?.updated ?? .distantPast) { snapshot = cached }
+            // Another process (`SohoMonitor --scan`) holds the lock. Its result is adopted from the shared cache by
+            // the next automatic scan (`scanIfDue`), one interval from now.
+            lastScanError = "another scan is running (SohoMonitor --scan); its result will be picked up"
         }
         if rescanPending {
             rescanPending = false
