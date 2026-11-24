@@ -15,8 +15,8 @@
 > menu bar extra and a movable Liquid Glass desktop panel.
 
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
-widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: **bootstrap**, the disk module
-is being migrated; see the [issues](https://github.com/francoisgn/soho-monitor/issues).
+widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: the **disk module** works (v0.1);
+the other modules are planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
 
 ## Features
 
@@ -31,6 +31,59 @@ is being migrated; see the [issues](https://github.com/francoisgn/soho-monitor/i
 Design: Apple system fonts (SF Pro, SF Pro Rounded for figures), native materials and Liquid Glass (macOS 26),
 subtle gradients, cards inspired by the system monitor of [OnlySwitch](https://github.com/jacklandrin/OnlySwitch)
 (MIT).
+
+## Disk module
+
+A desktop card (above the wallpaper, below every window, on all Spaces) and a menu bar extra:
+
+![Disk card](docs/images/disk-card.png)
+
+- **Card**: volume name, "X of Y used", free-space pill (orange / red under the configured thresholds), one
+  continuous segmented bar (groups by size, `macOS` and `Other` last), legend chips with their size and ⚠︎ when a
+  group was measured partially. Hover a segment or a chip for the detail of its categories; click a chip for the
+  group's three biggest folders (name, path, size, gauge). Drag the card to move it (position remembered),
+  double-click it to put it back in the bottom-left corner.
+- **Menu**: summary line ("Macintosh HD: 183.9 GB free of 494.4 GB"), last update or "Scanning…", configuration or
+  scan errors, Show / Hide Panel, Rescan Now, Quit.
+- **Scan**: every configured path is measured with `du -k -d 1` (one pass gives its size and its direct
+  sub-folders) at background quality of service, one scan at a time, every `scan_interval_minutes` (default 30) and
+  on demand. A full pass of a well-filled home folder takes several minutes. iOS simulator runtimes come from
+  `xcrun simctl runtime list -j`; the APFS container size, free space and the macOS volumes from `diskutil`.
+  The last result is cached in `~/Library/Caches/soho-monitor/disk-snapshot.json`, so the card shows figures at
+  launch.
+- **Counting rules**: categories are measured in file order; a path counted by an earlier category is subtracted
+  from the paths that contain it (net values, never twice, at least 0); a path inside one already counted adds
+  nothing. `macOS` = the container's volumes except Data (System, Preboot, Recovery, VM, Update); `Other` = used −
+  macOS − everything counted, at least 0 (`du` counts APFS clones in full, so categories can exceed the real use).
+  The top 3 of a group are the direct sub-folders of its paths, each net of what was counted at or below it.
+- **Full Disk Access**: without it, protected folders (Mail, Messages, other apps' containers) are read partially:
+  their chip shows ⚠︎ and the footer says so. Grant it to `SohoMonitor.app` in System Settings › Privacy & Security ›
+  Full Disk Access. An ad hoc signature changes at every build: grant it again after reinstalling.
+- **Headless scan**: `SohoMonitor.app/Contents/MacOS/SohoMonitor --scan` runs one scan with the current
+  configuration, writes the cache and prints the groups (useful to check the figures, or to fill the cache from a
+  terminal that already has disk access).
+
+### Configuration
+
+One YAML file, `~/.config/soho-monitor/config.yaml` (or `$XDG_CONFIG_HOME/soho-monitor/config.yaml`, or the path in
+`$SOHO_MONITOR_CONFIG`). Start from [`config/example.yaml`](config/example.yaml); a symbolic link to a file in your
+dotfiles works. The app checks the file every 2 seconds and reloads it when it changes; an invalid file is reported
+in the card and the menu (every problem, with its line) and the last valid configuration stays in use. Unknown keys
+are warnings.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `disk.scan_interval_minutes` | integer, 1–1440 | 30 | Minutes between two automatic scans |
+| `disk.free_space.warning_below_percent` | number, 0–100 | 20 | Free space below this share of the disk: orange pill |
+| `disk.free_space.critical_below_percent` | number, 0–100 | 10 | Below this: red pill (must be lower than the warning) |
+| `disk.categories` | list, required | — | Categories, measured in this order |
+| `disk.categories[].group` | string, required | — | Colour in the bar and chip in the legend; `macOS` and `Other` are reserved |
+| `disk.categories[].label` | string | the group | Line in the group's detail; `group`/`label` must be unique |
+| `disk.categories[].paths` | list of strings | — | Folders or files; `~` and globs (`*`, `?`, `[…]`) allowed |
+| `disk.categories[].source` | `ios-runtimes` | — | Instead of `paths`: iOS simulator runtimes (size from `simctl`) |
+
+A category has either `paths` or `source`. Put the most specific paths first (DerivedData before
+`~/Library/Developer`). Quote a path that starts with a YAML indicator (`*`, `&`, `!`, `[`, `{`).
 
 ## Architecture
 
