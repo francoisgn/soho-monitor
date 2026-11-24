@@ -1,0 +1,33 @@
+name: pre-commit autoupdate
+
+# Bumps the pinned hook versions of .pre-commit-config.yaml and opens a PR. A PR opened with GITHUB_TOKEN does not
+# trigger CI, so the hooks are replayed here before the PR is opened.
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  autoupdate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: pre-commit autoupdate
+        run: pipx run pre-commit autoupdate
+      - name: Run hooks with the new versions
+        run: pipx run pre-commit run --all-files --show-diff-on-failure
+      - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
+        with:
+          branch: chore/pre-commit-autoupdate
+          commit-message: "ci: pre-commit autoupdate"
+          title: "ci: pre-commit autoupdate"
+          body: Hook versions bumped by `pre-commit autoupdate`; hooks replayed successfully.
+          delete-branch: true

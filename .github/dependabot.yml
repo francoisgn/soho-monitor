@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Actions are pinned by SHA with the tag as a comment: Dependabot bumps both.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+  # Swift packages (Package.swift / Package.resolved).
+  - package-ecosystem: swift
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

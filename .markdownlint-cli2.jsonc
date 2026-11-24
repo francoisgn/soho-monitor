@@ -1,0 +1,9 @@
+// Only the rules that catch real rendering breakage (broken tables, dead anchors): LESSONS L07.
+{
+  "config": {
+    "default": false,
+    "MD051": true,
+    "MD056": true
+  },
+  "globs": ["**/*.md", "!**/.build/**", "!**/node_modules/**", "!.harness/**"]
+}

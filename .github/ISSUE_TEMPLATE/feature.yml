@@ -1,0 +1,52 @@
+name: Feature
+description: A new capability or an improvement
+labels: ["type: feature", "status: needs-triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: 'User story: "As a <who>, I want <X> to do <Y>, so that <benefit>" (METHODOLOGY.md §2 bis).'
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: Need
+      description: The problem to solve, not the solution yet.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal and acceptance criteria
+      description: "Given … / When … / Then …: one criterion = one test, written before the code."
+    validations:
+      required: true
+  - type: textarea
+    id: errors
+    attributes:
+      label: Error behaviours
+      description: 'Invalid input, external failure, limit → expected result (message, state kept). "None" must be justified.'
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: "Tests green (seen red first), docs up to date, review by another model, compliance if concerned, validation on the device."
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: Rule, official documentation, reference behaviour (link or file:line). Nothing guessed.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Triage sets the matching `priority:` label.
+      options: [critical (data loss or crash), high, medium, low]
+    validations:
+      required: true

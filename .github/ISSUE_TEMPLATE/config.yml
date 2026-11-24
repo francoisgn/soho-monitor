@@ -1,0 +1,6 @@
+# Security flaws never go through a public issue (SECURITY.md, private reporting).
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security flaw (private)
+    url: https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability
+    about: Never publish a flaw in an issue.

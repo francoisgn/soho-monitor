@@ -1,0 +1,10 @@
+[
+  { "name": "area: disk", "color": "0A84FF", "axis": "area", "description": "Disk usage module (categories, scan, top folders)" },
+  { "name": "area: system", "color": "32D74B", "axis": "area", "description": "CPU, GPU, memory, network, processes" },
+  { "name": "area: synology", "color": "BF5AF2", "axis": "area", "description": "Synology NAS through the DSM API" },
+  { "name": "area: unifi", "color": "64D2FF", "axis": "area", "description": "UniFi network through the local integration API" },
+  { "name": "area: claude", "color": "D97757", "axis": "area", "description": "Claude plan usage" },
+  { "name": "area: ui", "color": "FF9F0A", "axis": "area", "description": "SwiftUI: menu bar extra, desktop panel, cards, glass design" },
+  { "name": "area: config", "color": "FFD60A", "axis": "area", "description": "YAML configuration, reload, validation" },
+  { "name": "area: build", "color": "8E8E93", "axis": "area", "description": "Package, app bundle, signing, CI, harness" }
+]

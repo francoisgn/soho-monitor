@@ -1,0 +1,51 @@
+# Hooks run at every commit and replayed in CI. Pinned versions: the same results on every machine,
+# no linter installed by hand (swift-format comes with the Swift toolchain). Bump: pre-commit autoupdate
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1-1
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks             # blocks a secret at commit time (CI scans the full history)
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint           # GitHub Actions workflows (built by pre-commit's own Go toolchain)
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.32.0
+    hooks:
+      - id: zizmor               # workflow security: injection, unpinned actions, token scope
+        args: [--offline]
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.24.1
+    hooks:
+      - id: markdownlint-cli2    # rules and globs in .markdownlint-cli2.jsonc (rendering breakage only)
+        # Pinned Node LTS: nodeenv's "latest" picks a v27 alpha whose version string it cannot parse
+        language_version: 26.13.1
+
+  - repo: local
+    hooks:
+      - id: swift-format         # Swift style, from the toolchain (no install); config in .swift-format
+        name: swift-format lint
+        entry: swift format lint --strict --recursive --parallel
+        language: system
+        types: [swift]

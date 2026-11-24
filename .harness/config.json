@@ -1,0 +1,89 @@
+{
+  "language": "en",
+  "exclude": [
+    ".claude/agents/compliance-*",
+    ".claude/agents/doc-steward.md",
+    ".claude/agents/flow-monitor.md",
+    ".claude/agents/issue-steward.md",
+    ".claude/skills/compliance-review/*",
+    ".claude/skills/feedback-triage/*",
+    ".claude/skills/readme-update/*",
+    ".claude/skills/status-report/*",
+    ".coderabbit.yaml",
+    ".github/ISSUE_TEMPLATE/feedback.yml",
+    ".github/repo-settings.json",
+    ".github/workflows/*",
+    ".github/workflows/harness-sync.yml",
+    ".github/workflows/harness.yml",
+    ".harness/docs/COMPLIANCE.md",
+    ".harness/docs/FINOPS.md",
+    ".harness/docs/POSITIONING.md",
+    ".harness/docs/README-STANDARD.md",
+    ".harness/docs/REVIEW-SERVICE.md",
+    ".harness/docs/STEWARDS.md",
+    ".harness/docs/USAGE.md",
+    ".harness/docs/adr/*",
+    ".harness/docs/ai-layers/*",
+    ".harness/docs/assets/*",
+    ".harness/docs/diagrams/*",
+    ".harness/docs/factory/*",
+    ".harness/docs/lessons-inventory.md",
+    ".harness/hooks/pre-commit-secrets.sh",
+    ".harness/scripts/*",
+    ".harness/templates/*",
+    "docs/DECISIONS.md",
+    "docs/compliance/*",
+    "docs/diagrams/*",
+    "docs/lots/*"
+  ],
+  "orchestration": {
+    "memory_issue": null
+  },
+  "protected_branches": [
+    "main"
+  ],
+  "integration_branch": "main",
+  "branch_model": "B",
+  "branch_types": [
+    "lot",
+    "fix",
+    "feat",
+    "chore",
+    "docs",
+    "bootstrap"
+  ],
+  "default_branch_check": false,
+  "labels": {
+    "model_prefixes": [
+      "difficulty:"
+    ],
+    "size_prefixes": []
+  },
+  "ledger": {
+    "enabled": false,
+    "label": "ledger",
+    "fold_command": ""
+  },
+  "coderabbit": {
+    "agent_requests_review": false
+  },
+  "merge_gate": {
+    "required_labels": [],
+    "security_labels": [
+      "type: security"
+    ],
+    "body_lines": [
+      "issue",
+      "docs"
+    ]
+  },
+  "compliance": [],
+  "readme": {
+    "badges": true,
+    "image": false,
+    "architecture": "ascii",
+    "progress": false,
+    "quickstart": true,
+    "contributing": true
+  }
+}

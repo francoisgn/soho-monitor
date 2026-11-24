@@ -1,0 +1,32 @@
+[
+  { "name": "status: needs-triage", "color": "ededed", "axis": "status", "description": "New issue: type, priority and difficulty still to confirm" },
+  { "name": "status: needs-decision", "color": "f9d0c4", "axis": "status", "aliases": ["à clarifier"], "description": "Product decision expected before coding" },
+  { "name": "status: ready", "color": "0e8a16", "axis": "status", "description": "Triaged, intent complete: can be claimed" },
+  { "name": "status: claimed", "color": "1d76db", "axis": "status", "aliases": ["pris en charge"], "description": "A session claimed the issue (comment `/claim <id>`, released by `/release`)" },
+  { "name": "status: blocked", "color": "000000", "axis": "status", "aliases": ["bloqué"], "description": "Waits on something that can be named and will end (lot, capture, access): a `### Blocked by` section says what" },
+  { "name": "status: on-hold", "color": "c5def5", "axis": "status", "description": "Held by a decision (milestone not open, operator's call), not by a dependency" },
+
+  { "name": "type: bug", "color": "d73a4a", "axis": "type", "aliases": ["bug"], "description": "Incorrect behaviour or crash" },
+  { "name": "type: feature", "color": "a2eeef", "axis": "type", "aliases": ["feature"], "description": "New feature or improvement" },
+  { "name": "type: docs", "color": "0075ca", "axis": "type", "aliases": ["docs"], "description": "README, docs/, CLAUDE.md, diagrams" },
+  { "name": "type: chore", "color": "bfdadc", "axis": "type", "aliases": ["ci"], "description": "Workflows, tooling, quality, repository settings, release" },
+  { "name": "type: security", "color": "b60205", "axis": "type", "aliases": ["sécurité"], "description": "Flaw or hardening (never any public detail: SECURITY.md)" },
+  { "name": "type: epic", "color": "5319e7", "axis": "type", "aliases": ["feedback"], "description": "Umbrella issue with sub-issues: lot (LOT-NNN in the title) or test feedback to triage" },
+
+  { "name": "priority: critical", "color": "7f0000", "axis": "priority", "description": "Data loss or crash: before anything else" },
+  { "name": "priority: high", "color": "b60205", "axis": "priority", "aliases": ["P1 🔴"], "description": "Blocking or wrong result" },
+  { "name": "priority: medium", "color": "ff9f1c", "axis": "priority", "aliases": ["P2 🟠"], "description": "Important, next iteration" },
+  { "name": "priority: low", "color": "0e8a16", "axis": "priority", "aliases": ["P3 🟢"], "description": "Comfort, later" },
+
+  { "name": "difficulty: trivial", "color": "bfd4f2", "axis": "difficulty", "description": "Local or mechanical change, full spec in the issue. Fast model tier" },
+  { "name": "difficulty: easy", "color": "7fb3e8", "axis": "difficulty", "description": "A few files, state, persistence, layout. Solid model tier" },
+  { "name": "difficulty: medium", "color": "2e6fb5", "axis": "difficulty", "description": "Engine, business rules, security, architecture, research. Strong model tier" },
+  { "name": "difficulty: hard", "color": "1b4f8a", "axis": "difficulty", "description": "Structural decision or riskiest problem. Frontier model tier, reviewed by another" },
+
+  { "name": "needs: host", "color": "6e7781", "axis": "needs", "aliases": ["hôte: mac", "host: mac"], "description": "Needs the operator's machine (Xcode, simulator, device, captures): not for cloud sessions" },
+  { "name": "needs: info", "color": "d876e3", "axis": "needs", "description": "Waiting for information from the reporter" },
+  { "name": "needs: review", "color": "fbca04", "axis": "needs", "description": "Waiting for a review (adversarial, compliance or human)" },
+
+  { "name": "direct-pr", "color": "d93f0b", "axis": "tracking", "description": "PR without an issue (small fix, Direct-PR: line): counted for tracking" },
+  { "name": "dependencies", "color": "0366d6", "axis": "tracking", "description": "Dependency update (Dependabot)" }
+]

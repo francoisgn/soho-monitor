@@ -1,0 +1,8 @@
+import SohoMonitorCore
+import Testing
+
+@Test func versionIsSemver() {
+    let parts = SohoMonitorCore.version.split(separator: ".")
+    #expect(parts.count == 3)
+    #expect(parts.allSatisfy { Int($0) != nil })
+}

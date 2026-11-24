@@ -1,0 +1,64 @@
+name: CI
+
+# Linters on Linux (cheap), build + tests + bundle on macOS 26 (GitHub-hosted: never a self-hosted runner on a
+# public repository, a fork's PR would run code on it), full-history secret scan.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: pre-commit (same hooks as local; swift-format runs in the macOS job, with the same toolchain)
+        env:
+          SKIP: swift-format
+        run: pipx run pre-commit run --all-files --show-diff-on-failure
+
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      - name: swift-format lint
+        run: swift format lint --strict --recursive --parallel Package.swift Sources Tests
+      - name: Build
+        run: swift build
+      - name: Tests
+        run: swift test
+      - name: Bundle the app
+        run: scripts/bundle-app.sh
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read   # gitleaks reads the list of the PR's commits
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
