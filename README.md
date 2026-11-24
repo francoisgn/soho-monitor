@@ -46,8 +46,9 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
 - **Menu**: summary line ("Macintosh HD: 183.9 GB free of 494.4 GB"), last update or "Scanning…", configuration or
   scan errors, Show / Hide Panel, Rescan Now, Quit.
 - **Scan**: every configured path is measured with `du -k -d 1` (one pass gives its size and its direct
-  sub-folders) at background quality of service, one scan at a time, every `scan_interval_minutes` (default 30) and
-  on demand. A full pass of a well-filled home folder takes several minutes. iOS simulator runtimes come from
+  sub-folders) at background quality of service, every `scan_interval_minutes` (default 30) and on demand. One scan
+  at a time, across processes too (a lock file next to the cache: `--scan` refuses while the app scans, and the
+  reverse). A failed scan is retried after one interval, not at once. A full pass of a well-filled home folder takes several minutes. iOS simulator runtimes come from
   `xcrun simctl runtime list -j`; the APFS container size, free space and the macOS volumes from `diskutil`.
   The last result is cached in `~/Library/Caches/soho-monitor/disk-snapshot.json`, so the card shows figures at
   launch.

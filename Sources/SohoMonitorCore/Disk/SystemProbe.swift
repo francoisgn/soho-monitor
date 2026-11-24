@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// A system command or its output could not be used.
 public enum ProbeError: Error, Sendable, Equatable, CustomStringConvertible {
@@ -51,6 +52,7 @@ public struct ProcessRunner: CommandRunning {
         let err = Pipe()
         process.standardOutput = out
         process.standardError = err
+        let cancelled = Flag()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 // Both pipes are drained on their own threads: a full stderr pipe would otherwise block `du`.
@@ -58,6 +60,8 @@ public struct ProcessRunner: CommandRunning {
                     do {
                         try process.run()
                         RunningProcesses.shared.insert(process)
+                        // Cancelled before the process existed: onCancel found nothing to stop.
+                        if cancelled.isSet { process.terminate() }
                     } catch {
                         continuation.resume(throwing: ProbeError.commandFailed("cannot run \(executable): \(error)"))
                         return
@@ -79,9 +83,17 @@ public struct ProcessRunner: CommandRunning {
                 }
             }
         } onCancel: {
+            cancelled.set()
             if process.isRunning { process.terminate() }
         }
     }
+}
+
+/// A one-way flag shared between the cancellation handler and the thread that starts the process.
+private final class Flag: Sendable {
+    private let value = Mutex(false)
+    var isSet: Bool { value.withLock { $0 } }
+    func set() { value.withLock { $0 = true } }
 }
 
 /// Processes started by `ProcessRunner` and not yet finished.

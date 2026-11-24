@@ -103,10 +103,15 @@ enum HeadlessScan {
         let done = DispatchSemaphore(value: 0)
         Task.detached(priority: .background) {
             let scanner = DiskScanner(runner: ProcessRunner(), paths: GlobPathResolver(home: NSHomeDirectory()))
-            box.outcome = await ScanCoordinator(scanner: scanner).scanIfIdle(config)
+            let coordinator = ScanCoordinator(scanner: scanner, lockURL: SnapshotStore.defaultLockURL)
+            box.outcome = await coordinator.scanIfIdle(config)
             done.signal()
         }
         done.wait()
+        if box.outcome == .alreadyRunning {
+            fputs("ko    another scan is running (the app or another --scan): try again when it ends\n", stderr)
+            return 1
+        }
         guard case .completed(let snapshot) = box.outcome else {
             fputs("ko    scan failed: \(String(describing: box.outcome))\n", stderr)
             return 1

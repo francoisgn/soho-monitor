@@ -122,20 +122,36 @@ public enum ScanOutcome: Sendable, Equatable {
     case alreadyRunning
 }
 
-/// Serialises scans: a request while one runs is refused, not queued.
+/// Serialises scans: a request while one runs is refused, not queued. With a lock file, the refusal also covers
+/// another process (the app and `SohoMonitor --scan`).
 public actor ScanCoordinator {
     private let scanner: any DiskScanning
+    private let lockURL: URL?
     public private(set) var isScanning = false
 
-    public init(scanner: any DiskScanning) {
+    public init(scanner: any DiskScanning, lockURL: URL? = nil) {
         self.scanner = scanner
+        self.lockURL = lockURL
     }
 
     public func scanIfIdle(_ config: DiskConfig) async -> ScanOutcome {
         guard !isScanning else { return .alreadyRunning }
+        let lock: ScanLock?
+        if let lockURL {
+            switch ScanLock.acquire(lockURL) {
+            case .acquired(let held): lock = held
+            case .busy: return .alreadyRunning
+            case .failed(let message): return .failed(message)
+            }
+        } else {
+            lock = nil
+        }
         // Set before the first suspension point: a re-entrant call sees it.
         isScanning = true
-        defer { isScanning = false }
+        defer {
+            isScanning = false
+            lock?.release()
+        }
         do {
             return .completed(try await scanner.scan(config))
         } catch is CancellationError {
@@ -146,12 +162,56 @@ public actor ScanCoordinator {
     }
 }
 
+/// An exclusive, non-blocking `flock(2)` on a lock file. Released by `release()`, or by the kernel if the process
+/// dies, so a crash never leaves a stale lock (unlike a lock directory).
+final class ScanLock: Sendable {
+    enum Attempt {
+        case acquired(ScanLock)
+        case busy
+        case failed(String)
+    }
+
+    private let descriptor: Int32
+
+    private init(descriptor: Int32) {
+        self.descriptor = descriptor
+    }
+
+    static func acquire(_ url: URL) -> Attempt {
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        } catch {
+            return .failed("cannot create \(url.deletingLastPathComponent().path): \(error)")
+        }
+        let fd = open(url.path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
+        guard fd >= 0 else { return .failed("cannot open \(url.path): \(String(cString: strerror(errno)))") }
+        guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+            let busy = errno == EWOULDBLOCK
+            let message = String(cString: strerror(errno))
+            close(fd)
+            return busy ? .busy : .failed("cannot lock \(url.path): \(message)")
+        }
+        return .acquired(ScanLock(descriptor: fd))
+    }
+
+    func release() {
+        flock(descriptor, LOCK_UN)
+        close(descriptor)
+    }
+}
+
 /// The last snapshot, cached under `~/Library/Caches/soho-monitor/` so the card shows figures at launch.
 public struct SnapshotStore: Sendable {
     public let url: URL
 
     public init(directory: URL) {
         url = directory.appendingPathComponent("disk-snapshot.json")
+    }
+
+    /// Lock file shared by every process that scans, next to the cache.
+    public static var defaultLockURL: URL {
+        defaultDirectory.appendingPathComponent("scan.lock")
     }
 
     public static var defaultDirectory: URL {

@@ -19,6 +19,8 @@ final class AppModel {
     @ObservationIgnored private var scheduleTask: Task<Void, Never>?
     @ObservationIgnored private var watchTask: Task<Void, Never>?
     @ObservationIgnored private var configFingerprint: FileFingerprint?
+    /// End of the last scan attempt, failed ones included: a failure waits one interval before the next try.
+    @ObservationIgnored private var lastAttempt: Date?
     /// Categories changed while a scan was running: scan again when it ends.
     @ObservationIgnored private var rescanPending = false
 
@@ -32,7 +34,8 @@ final class AppModel {
         self.configURL = configURL
         self.store = store
         coordinator = ScanCoordinator(
-            scanner: DiskScanner(runner: ProcessRunner(), paths: GlobPathResolver(home: NSHomeDirectory())))
+            scanner: DiskScanner(runner: ProcessRunner(), paths: GlobPathResolver(home: NSHomeDirectory())),
+            lockURL: SnapshotStore.defaultLockURL)
         panelVisible = UserDefaults.standard.object(forKey: Self.panelVisibleKey) as? Bool ?? true
     }
 
@@ -82,7 +85,8 @@ final class AppModel {
     private func schedule() {
         scheduleTask?.cancel()
         let next = ScanSchedule.nextScan(
-            lastUpdated: snapshot?.updated, intervalMinutes: disk.scanIntervalMinutes, now: .now)
+            lastUpdated: snapshot?.updated, lastAttempt: lastAttempt, intervalMinutes: disk.scanIntervalMinutes,
+            now: .now)
         scheduleTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(max(0, next.timeIntervalSinceNow)))
             guard !Task.isCancelled, let self else { return }
@@ -95,16 +99,26 @@ final class AppModel {
         isScanning = true
         let outcome = await coordinator.scanIfIdle(disk)
         isScanning = false
+        lastAttempt = .now
         switch outcome {
         case .completed(let result):
             snapshot = result
             lastScanError = nil
             let store = store
-            Task.detached(priority: .background) { try? store.save(result) }
+            let saved = await Task.detached(priority: .background) { () -> String? in
+                do {
+                    try store.save(result)
+                    return nil
+                } catch {
+                    return "cannot write the cache \(store.url.path): \(error.localizedDescription)"
+                }
+            }.value
+            if let saved { lastScanError = saved }
         case .failed(let message):
             lastScanError = message
         case .alreadyRunning:
-            break
+            // Another process (`SohoMonitor --scan`) holds the lock: its result lands in the shared cache.
+            if let cached = store.load(), cached.updated > (snapshot?.updated ?? .distantPast) { snapshot = cached }
         }
         if rescanPending {
             rescanPending = false

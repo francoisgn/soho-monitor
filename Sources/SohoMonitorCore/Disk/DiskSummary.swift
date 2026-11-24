@@ -146,12 +146,13 @@ public enum DiskSummary {
 
 /// When the next automatic scan runs.
 public enum ScanSchedule {
-    /// Now without any snapshot, otherwise one interval after the last one (at most one interval from now, should
-    /// the clock have moved backwards).
-    public static func nextScan(lastUpdated: Date?, intervalMinutes: Int, now: Date) -> Date {
-        guard let lastUpdated else { return now }
+    /// Now without any snapshot or attempt, otherwise one interval after the later of the last snapshot and the last
+    /// attempt (a failed scan waits one interval instead of starting a long `du` pass again at once), and at most one
+    /// interval from now, should the clock have moved backwards.
+    public static func nextScan(lastUpdated: Date?, lastAttempt: Date? = nil, intervalMinutes: Int, now: Date) -> Date {
+        guard let reference = [lastUpdated, lastAttempt].compactMap(\.self).max() else { return now }
         let interval = TimeInterval(max(1, intervalMinutes) * 60)
-        let due = lastUpdated.addingTimeInterval(interval)
+        let due = reference.addingTimeInterval(interval)
         return min(max(due, now), now.addingTimeInterval(interval))
     }
 }

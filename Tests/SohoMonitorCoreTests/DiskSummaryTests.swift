@@ -134,4 +134,15 @@ private func snapshot(_ categories: [CategoryUsage], total: Int64 = 500 * gb, fr
             ScanSchedule.nextScan(lastUpdated: now.addingTimeInterval(86_400), intervalMinutes: 30, now: now)
                 == now.addingTimeInterval(30 * 60))
     }
+
+    @Test func aFailedAttemptWaitsOneIntervalInsteadOfRetryingAtOnce() {
+        // No snapshot (first run) or a stale one, and a scan that just failed: wait one interval, never loop.
+        #expect(
+            ScanSchedule.nextScan(lastUpdated: nil, lastAttempt: now, intervalMinutes: 30, now: now)
+                == now.addingTimeInterval(30 * 60))
+        #expect(
+            ScanSchedule.nextScan(
+                lastUpdated: now.addingTimeInterval(-3 * 3600), lastAttempt: now.addingTimeInterval(-5 * 60),
+                intervalMinutes: 30, now: now) == now.addingTimeInterval(25 * 60))
+    }
 }

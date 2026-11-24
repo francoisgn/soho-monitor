@@ -64,6 +64,34 @@ private struct FailingScanner: DiskScanning {
         #expect(await !coordinator.isScanning)
     }
 
+    @Test func aLockFileKeepsAnotherCoordinatorOut() async throws {
+        // Two coordinators stand for the app and `SohoMonitor --scan`: separate processes in real life, separate
+        // open file descriptions here, which flock(2) treats the same way.
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("soho-lock-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let lock = dir.appendingPathComponent("scan.lock")
+        let scanner = GatedScanner()
+        let app = ScanCoordinator(scanner: scanner, lockURL: lock)
+        let headless = ScanCoordinator(scanner: FailingScanner(), lockURL: lock)
+        let first = Task { await app.scanIfIdle(DiskConfig(categories: [])) }
+        await scanner.waitUntilStarted()
+
+        #expect(await headless.scanIfIdle(DiskConfig(categories: [])) == .alreadyRunning)
+
+        await scanner.open()
+        _ = await first.value
+        // Released when the scan ends: the other one may run now.
+        let other = GatedScanner()
+        let later = ScanCoordinator(scanner: other, lockURL: lock)
+        let next = Task { await later.scanIfIdle(DiskConfig(categories: [])) }
+        await other.waitUntilStarted()
+        await other.open()
+        guard case .completed = await next.value else {
+            Issue.record("the lock should be free after the first scan")
+            return
+        }
+    }
+
     @Test func aFailureIsReportedAndReleasesTheLock() async {
         let coordinator = ScanCoordinator(scanner: FailingScanner())
         let outcome = await coordinator.scanIfIdle(DiskConfig(categories: []))
