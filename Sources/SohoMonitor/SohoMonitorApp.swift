@@ -1,17 +1,132 @@
+import AppKit
 import SohoMonitorCore
 import SwiftUI
 
-/// Bootstrap entry point: a menu bar extra only. The disk module and the desktop panel come with the
-/// migration of the diskwidget (see the issues).
+/// Entry point: `SohoMonitor --scan` runs one scan without UI (writes the cache, prints a summary); otherwise the
+/// menu bar app starts.
 @main
-struct SohoMonitorApp: App {
-    var body: some Scene {
-        MenuBarExtra("soho-monitor", systemImage: "gauge.with.dots.needle.33percent") {
-            Text("soho-monitor \(SohoMonitorCore.version)")
-                .font(.system(.body, design: .rounded))
-            Divider()
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .keyboardShortcut("q")
+enum Entry {
+    static func main() {
+        if CommandLine.arguments.dropFirst().contains("--scan") {
+            exit(HeadlessScan.run())
         }
+        SohoMonitorApp.main()
+    }
+}
+
+struct SohoMonitorApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+
+    var body: some Scene {
+        MenuBarExtra("soho-monitor", systemImage: "internaldrive") {
+            MenuContent(model: delegate.model)
+        }
+    }
+}
+
+/// Owns the model and the desktop panel for the whole life of the app.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let model = AppModel()
+    private var panel: DesktopPanelController?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        model.start()
+        let panel = DesktopPanelController(model: model)
+        self.panel = panel
+        panel.setVisible(model.panelVisible)
+        observePanelVisibility()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // A `du` still running would otherwise go on after the app has quit.
+        ProcessRunner.terminateRunning()
+    }
+
+    private func observePanelVisibility() {
+        withObservationTracking {
+            _ = model.panelVisible
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.panel?.setVisible(self.model.panelVisible)
+                self.observePanelVisibility()
+            }
+        }
+    }
+}
+
+private struct MenuContent: View {
+    let model: AppModel
+
+    var body: some View {
+        Text(model.menuSummary)
+        if model.isScanning {
+            Text("Scanning…")
+        } else if let snapshot = model.snapshot {
+            Text("Updated \(RelativeAge.string(from: snapshot.updated, now: .now))")
+        }
+        if !model.configState.errors.isEmpty {
+            Text("⚠︎ Config error: \(model.configState.errors[0].description)")
+        }
+        if let error = model.lastScanError {
+            Text("⚠︎ Scan failed: \(error)")
+        }
+        Divider()
+        Button(model.panelVisible ? "Hide Panel" : "Show Panel") { model.panelVisible.toggle() }
+            .keyboardShortcut("p")
+        Button("Rescan Now") { model.rescanNow() }
+            .keyboardShortcut("r")
+            .disabled(model.isScanning || !model.configState.hasValidConfig)
+        Divider()
+        Text("soho-monitor \(SohoMonitorCore.version)")
+        Button("Quit") { NSApplication.shared.terminate(nil) }
+            .keyboardShortcut("q")
+    }
+}
+
+/// `--scan`: one scan with the current configuration, cache written, summary on stdout. Useful to fill the cache
+/// from a shell, or to check the figures without the UI.
+enum HeadlessScan {
+    static func run() -> Int32 {
+        let url = ConfigFile.defaultURL(environment: ProcessInfo.processInfo.environment, home: NSHomeDirectory())
+        let config: DiskConfig
+        switch ConfigFile.load(url) {
+        case .success(let loaded):
+            for warning in loaded.warnings { print("warn  \(warning)") }
+            config = loaded.config.disk
+        case .failure(let error):
+            for issue in error.issues { fputs("ko    \(issue)\n", stderr) }
+            return 1
+        }
+        let box = OutcomeBox()
+        let done = DispatchSemaphore(value: 0)
+        Task.detached(priority: .background) {
+            let scanner = DiskScanner(runner: ProcessRunner(), paths: GlobPathResolver(home: NSHomeDirectory()))
+            box.outcome = await ScanCoordinator(scanner: scanner).scanIfIdle(config)
+            done.signal()
+        }
+        done.wait()
+        guard case .completed(let snapshot) = box.outcome else {
+            fputs("ko    scan failed: \(String(describing: box.outcome))\n", stderr)
+            return 1
+        }
+        let store = SnapshotStore(directory: SnapshotStore.defaultDirectory)
+        do {
+            try store.save(snapshot)
+        } catch {
+            fputs("ko    cannot write \(store.url.path): \(error)\n", stderr)
+            return 1
+        }
+        for group in DiskSummary.groups(of: snapshot) {
+            print(group.detail + (group.partial ? "  (partial)" : ""))
+        }
+        print("ok    \(DiskSummary.menuLine(of: snapshot)), scan \(Int(snapshot.duration)) s → \(store.url.path)")
+        return 0
+    }
+
+    /// Written by the scan task before the semaphore is signalled, read after `wait()`: ordered, never concurrent.
+    private final class OutcomeBox: @unchecked Sendable {
+        var outcome: ScanOutcome?
     }
 }
