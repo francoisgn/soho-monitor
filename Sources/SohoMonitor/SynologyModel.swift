@@ -17,8 +17,12 @@ final class SynologyModel {
     private(set) var credentials: Credentials = .unknown
     /// TLS state of the last successful test, for its warning.
     private(set) var lastTrust: TLSTrustState?
-    /// The last `Test Saved Password`, shown on the card and in the credential window.
-    private(set) var savedTest: SavedPasswordTest = .idle
+    /// The last `Test Saved Password`, shown on the card and in the credential window. Setting it back to idle
+    /// (config change, save, remove) also drops the result of a test still running.
+    private(set) var savedTest: SavedPasswordTest = .idle {
+        didSet { if savedTest == .idle { savedTestGeneration &+= 1 } }
+    }
+    @ObservationIgnored private var savedTestGeneration = 0
 
     enum SavedPasswordTest: Equatable {
         case idle
@@ -111,14 +115,15 @@ final class SynologyModel {
 
     /// `Test Saved Password`: reads the password from the Keychain (the macOS access prompt the first time, where
     /// the user chooses Always Allow), then the same test as a typed password. Nil when a test is already running,
-    /// or when the configuration changed meanwhile (the result belongs to the previous NAS).
+    /// or when a config change, save or remove overtook it (the result is about a previous password or NAS).
     @discardableResult
     func testSavedPassword() async -> Result<TLSTrustState, DSMError>? {
         guard let config else { return .failure(.needsSetup) }
         guard savedTest != .testing else { return nil }
         savedTest = .testing
+        let generation = savedTestGeneration
         let result = await Self.testSaved(config: config, secrets: secrets)
-        guard self.config == config else { return nil }
+        guard generation == savedTestGeneration, self.config == config else { return nil }
         switch result {
         case .success(let state):
             lastTrust = state
