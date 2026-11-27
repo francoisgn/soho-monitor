@@ -40,13 +40,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = DesktopPanelController(model: model, system: system)
         self.panel = panel
         panel.onScreenChanged = { [weak self] onScreen in self?.system.setDemand(onScreen) }
+        panel.setAlpha(model.panelAlpha)
         panel.setVisible(model.panelVisible)
         observePanelVisibility()
+        observePanelAlpha()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         // A `du` still running would otherwise go on after the app has quit.
         ProcessRunner.terminateRunning()
+    }
+
+    /// The Panel Opacity step and the accessibility settings that override it, applied live.
+    private func observePanelAlpha() {
+        withObservationTracking {
+            _ = model.panelAlpha
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.panel?.setAlpha(self.model.panelAlpha)
+                self.observePanelAlpha()
+            }
+        }
     }
 
     private func observePanelVisibility() {
@@ -64,6 +79,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 private struct MenuContent: View {
     @Bindable var model: AppModel
+
+    private var panelOpacityTitle: String {
+        guard model.panelOpacityOverridden else { return "Panel Opacity" }
+        return "Panel Opacity (100%: \(model.increaseContrast ? "Increase Contrast" : "Reduce Transparency") on)"
+    }
 
     var body: some View {
         Text(model.menuSummary)
@@ -85,6 +105,13 @@ private struct MenuContent: View {
         // step checked, hence steps rather than a slider.
         Picker("Tile Opacity", selection: $model.tileOpacity) {
             ForEach(TileOpacity.allCases, id: \.self) { step in
+                Text(step == .standard ? "\(step.name) (default)" : step.name).tag(step)
+            }
+        }
+        // Fades the whole desktop panel, text included; combines with Tile Opacity. The title says when an
+        // accessibility setting keeps the panel in full, or picking a step would seem to do nothing.
+        Picker(panelOpacityTitle, selection: $model.panelOpacity) {
+            ForEach(PanelOpacity.allCases, id: \.self) { step in
                 Text(step == .standard ? "\(step.name) (default)" : step.name).tag(step)
             }
         }
