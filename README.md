@@ -38,13 +38,13 @@ subtle gradients, cards inspired by the system monitor of [OnlySwitch](https://g
 App icon: three glass gauges (disk, CPU, Claude) on a night blue → indigo gradient, a layered Icon Composer file
 (`Resources/AppIcon.icon`) that macOS renders in default, dark, tinted and clear styles:
 
-![App icon: default, dark, tinted light, tinted dark, clear](docs/images/app-icon.png)
+<p align="center"><img src="docs/images/app-icon.png" alt="App icon: default, dark, tinted light, tinted dark, clear" width="480"></p>
 
 ## Disk module
 
 A desktop card (above the wallpaper, below every window, on all Spaces) and a menu bar extra:
 
-![Disk card](docs/images/disk-card.png)
+<p align="center"><img src="docs/images/disk-card.png" alt="Disk card" width="420"></p>
 
 - **Card**: volume name, "X of Y used", free-space pill (orange / red under the configured thresholds), one
   continuous segmented bar (groups by size, `macOS` and `Other` last), legend chips with their size and ⚠︎ when a
@@ -101,7 +101,7 @@ A category has either `paths` or `source`. Put the most specific paths first (De
 
 Two glass cards above the disk card on the desktop panel:
 
-![CPU and memory cards](docs/images/system-cards.png)
+<p align="center"><img src="docs/images/system-cards.png" alt="CPU and memory cards" width="420"></p>
 
 - **CPU**: total usage of all cores (user + system + nice ticks over all ticks between two samples, from
   `host_processor_info`), chip name (`machdep.cpu.brand_string`), core count and the split per performance level
@@ -119,7 +119,7 @@ Two glass cards above the disk card on the desktop panel:
 
 A second card in the desktop panel, shown when the configuration lists Claude Code profiles:
 
-![Claude card](docs/images/claude-card.png)
+<p align="center"><img src="docs/images/claude-card.png" alt="Claude card" width="420"></p>
 
 - **Per profile**, in configuration order: its label and plan, a bar with the **weekly** limit (all models), its
   percent and reset; below, donuts with the **5-hour session** and each **per-model weekly** limit (e.g. Fable),
@@ -128,6 +128,9 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
 - **States**: "Waiting for first update…"; a problem (not logged in, limits unavailable or none reported, Node.js
   or Claude Code not found, config directory not found, helper error or timeout) is written under the block and the
   last good figures stay; figures older than two refresh intervals are dimmed with their age.
+<p align="center"><img src="docs/diagrams/claude-usage.svg" alt="Claude usage data flow: the Claude card asks ClaudeUsageProvider, which runs the bundled usage.mjs helper with node (30 s timeout, environment allowlist, CLAUDE_CONFIG_DIR); the helper's Claude Agent SDK session, whose prompt never sends a message, asks the installed claude binary, logged in with the profile's own login, for the plan usage kept on claude.ai; one JSON line (kind, percent, severity, resets_at) comes back to the card. The app and the helper never send a prompt and never read a token, a credentials file or the Keychain." width="100%"></p>
+<sub>Source: <a href="docs/diagrams/claude-usage.excalidraw">claude-usage.excalidraw</a> (excalidraw.com › Open).</sub>
+
 - **Source** ([ADR 0001](docs/adr/0001-claude-usage-source.md)): a Node helper bundled in the app
   (`Contents/Resources/claude-usage/`) uses Anthropic's Claude Agent SDK to ask the **installed, unmodified
   `claude`** for the data behind `/usage`, with the profile's own login (`CLAUDE_CONFIG_DIR`). No prompt is sent
@@ -148,20 +151,9 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
 
 ## Architecture
 
-```text
- ~/.config/soho-monitor/config.yaml  (versioned in your dotfiles)
-            │ watched, reloaded live
-            ▼
- ┌──────────────────────── SohoMonitor.app (menu bar, LSUIElement) ────────────────────────┐
- │  SohoMonitorCore (Swift package library, unit-tested)                                   │
- │    Config (Yams) ─▶ Collectors: disk (du, background, low priority) · system (Mach,     │
- │    sysctl, getifaddrs) · synology (DSM API) · unifi (integration API) · claude usage     │
- │                                  │ snapshots (Codable, cached to disk)                  │
- │  SohoMonitor (SwiftUI)           ▼                                                      │
- │    MenuBarExtra ── desktop panel (NSPanel at desktop level, movable, glass cards)        │
- └──────────────────────────────────────────────────────────────────────────────────────────┘
-   Secrets: macOS Keychain only. Network: only the hosts named in the configuration.
-```
+<p align="center"><img src="docs/diagrams/architecture.svg" alt="Architecture: config.yaml (polled every 2 s), the disk-snapshot.json cache, macOS (Mach, sysctl, pressure events) and the Node helper feed the four modules of SohoMonitorCore (Config, Disk, System, Claude usage), a Swift library with no UI; the SwiftUI app's models (AppModel, SystemModel, ClaudeUsageModel) drive the menu bar extra and the desktop panel. Planned: Synology and UniFi modules, secrets in the Keychain, calls only to configured hosts." width="100%"></p>
+<sub>Source: <a href="docs/diagrams/architecture.excalidraw">architecture.excalidraw</a> (excalidraw.com › Open). Diagrams are exported to SVG by
+<code>scripts/export-diagrams.sh</code> (Excalidraw's own export, font embedded).</sub>
 
 | Path | Role |
 |---|---|
@@ -172,6 +164,7 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
 | `Tests/SohoMonitorCoreTests/` | Swift Testing suites |
 | `config/` | Example configuration |
 | `Resources/AppIcon.icon/` | App icon (Icon Composer package: `icon.json` and SVG layers), compiled by `actool` |
+| `docs/diagrams/` | README diagrams: Excalidraw sources and their SVG export (`scripts/export-diagrams.sh`, tooling outside the repository) |
 | `scripts/bundle-app.sh` | Release build → `build/SohoMonitor.app` (menu bar app, Apple Development certificate if present, else ad hoc) |
 | `.harness/`, `.claude/`, `CLAUDE.md`, `AGENTS.md` | Rules for the coding agents ([Belayline](https://github.com/francoisgn/belayline-agentic-harness)) |
 
