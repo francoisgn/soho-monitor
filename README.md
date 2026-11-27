@@ -23,7 +23,7 @@ the other modules are planned, see the [issues](https://github.com/francoisgn/so
 | Module | What it shows | Status |
 |---|---|---|
 | Disk | Usage of the startup volume by configurable groups and categories (YAML), segmented bar, legend, top 3 folders per group, free space thresholds | 🔵 migrating |
-| System | CPU and memory cards (large figure, thin bar, 2-minute sparkline, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
+| System | CPU and memory cards (large figure, thin bar, sparkline of the last 120 samples, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
 | Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account | ⚪ planned |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
 | Claude | Usage of the operator's Claude plans (session and weekly limits, reset times) | ⚪ planned |
@@ -99,9 +99,9 @@ Two glass cards above the disk card on the desktop panel:
   pressure pill (event driven: `DispatchSource` memory-pressure source, seeded by
   `kern.memorystatus_vm_pressure_level`), swap used (`vm.swapusage`). Sizes in binary units (16 GB = 16 GiB). The
   bar turns orange / red with the pressure level, or above 85 % / 95 % used when the pressure is unknown.
-- **Sampling**: once per second, and only while the panel is on screen: hidden, fully covered or on a locked display,
-  nothing is sampled. After the Mac wakes, the first CPU sample is dropped rather than averaged over the sleep. A
-  metric that cannot be read shows "Unavailable" (reason on hover), never a fake 0 %.
+- **Sampling**: once per second, and only while the panel is on screen: hidden, or fully covered by windows
+  (`NSWindow` occlusion state), nothing is sampled. After the Mac wakes, the first CPU sample is dropped rather than averaged over the sleep. A
+  metric that cannot be read shows a dash and the reason in a red pill, never a fake 0 %.
 
 ## Architecture
 

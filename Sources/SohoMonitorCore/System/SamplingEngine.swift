@@ -188,17 +188,17 @@ public actor SamplingEngine<C: Clock> where C.Duration == Duration {
             for id in entries.keys where entries[id]?.demand.isEmpty == false {
                 guard generation == current, let entry = entries[id], !entry.demand.isEmpty else { continue }
                 if let due = entry.nextDue, due > now { continue }
+                // Next tick one interval after the one that was due, or from now after a gap: never a catch-up burst.
+                // Recorded before the awaits below: the actor is free during them, and a loop restarted meanwhile
+                // (another metric acquired) must not sample this one a second time, microseconds later.
+                var next = (entry.nextDue ?? now).advanced(by: entry.interval)
+                if next <= now { next = now.advanced(by: entry.interval) }
+                entries[id]?.nextDue = next
+                entries[id]?.lastSample = now
                 if let last = entry.lastSample, last.duration(to: now) > entry.interval * gapFactor {
                     await entry.reset()
                 }
                 await entry.tick()
-                // Next tick one interval after the one that was due, or from now after a gap: never a catch-up burst.
-                // Recorded even if the loop was replaced meanwhile, so the new loop does not sample it again at once;
-                // skipped if the metric was released meanwhile (its next demand samples at once).
-                var next = (entry.nextDue ?? now).advanced(by: entry.interval)
-                if next <= now { next = now.advanced(by: entry.interval) }
-                entries[id]?.lastSample = now
-                if entries[id]?.demand.isEmpty == false { entries[id]?.nextDue = next }
                 guard generation == current else { return }
             }
             let dues = entries.values.filter { !$0.demand.isEmpty }.compactMap(\.nextDue)

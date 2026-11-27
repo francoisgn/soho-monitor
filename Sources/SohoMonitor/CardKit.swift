@@ -67,7 +67,8 @@ private struct GlassBackground: ViewModifier {
     }
 }
 
-/// Icon, metric name and subtitle on the left, the large figure on the right.
+/// Icon and metric name on the left, the large figure on the right; the subtitle (chip name, "6.0 GB of 16.0 GB")
+/// on its own line below, with the card's full width: next to the figure a half-width card had no room for it.
 struct MetricHeader: View {
     var symbol: String
     var title: String
@@ -76,53 +77,63 @@ struct MetricHeader: View {
     var tint: Color
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(tint.gradient, in: .circle)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.system(size: 13, weight: .semibold))
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 26, height: 26)
+                    .background(tint.gradient, in: .circle)
+                Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Spacer(minLength: 4)
+                Text(figure)
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(tint)
+                    .contentTransition(.numericText())
+                    .lineLimit(1)
+                    .fixedSize()
             }
-            Spacer(minLength: 4)
-            Text(figure)
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(tint)
-                .contentTransition(.numericText())
-                .lineLimit(1)
-                .fixedSize()
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(subtitle)
+            }
         }
     }
 }
 
-/// A small glass capsule with a short fact ("10 cores", "Swap 1.2 GB").
+/// A small glass capsule with a short fact ("10 cores", "Swap 1.2 GB"); opaque under Reduce Transparency.
 struct InfoPill: View {
     var text: String
     var tint: Color?
     var help: String?
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
-        HStack(spacing: 4) {
+        let label = HStack(spacing: 4) {
             if let tint {
                 Circle().fill(tint.gradient).frame(width: 6, height: 6)
             }
-            Text(text)
+            Text(text).truncationMode(.tail)
         }
         .font(.system(size: 10.5, weight: .medium, design: .rounded))
         .monospacedDigit()
         .lineLimit(1)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .glassEffect(.regular, in: .capsule)
         .help(help ?? text)
+        if reduceTransparency {
+            label.background(Color(nsColor: .controlBackgroundColor), in: .capsule)
+                .overlay(Capsule().strokeBorder(.separator, lineWidth: 1))
+        } else {
+            label.glassEffect(.regular, in: .capsule)
+        }
     }
 }
 

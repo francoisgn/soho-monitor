@@ -120,6 +120,59 @@ final class CountingCollector: MetricCollector {
     }
 }
 
+/// A collector whose `sample()` suspends until `open()`: lets a test act while a tick is in flight.
+final class GatedCollector: MetricCollector {
+    private struct State {
+        var calls = 0
+        var isOpen = false
+        var blocked: [CheckedContinuation<Void, Never>] = []
+        var insideWaiters: [CheckedContinuation<Void, Never>] = []
+    }
+
+    private let state = Mutex(State())
+
+    var callCount: Int { state.withLock { $0.calls } }
+
+    func sample() async throws -> Int? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let (resumeNow, inside) = state.withLock { state in
+                state.calls += 1
+                defer { state.insideWaiters = [] }
+                if state.isOpen { return (true, state.insideWaiters) }
+                state.blocked.append(continuation)
+                return (false, state.insideWaiters)
+            }
+            for waiter in inside { waiter.resume() }
+            if resumeNow { continuation.resume() }
+        }
+        return callCount
+    }
+
+    func reset() async {}
+
+    /// Returns once a `sample()` call has started.
+    func waitUntilInside() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let ready = state.withLock { state in
+                if state.calls > 0 { return true }
+                state.insideWaiters.append(continuation)
+                return false
+            }
+            if ready { continuation.resume() }
+        }
+    }
+
+    /// Lets every blocked and future `sample()` call through.
+    func open() {
+        let blocked = state.withLock { state in
+            state.isOpen = true
+            defer { state.blocked = [] }
+            return state.blocked
+        }
+        for continuation in blocked { continuation.resume() }
+    }
+}
+
 @Suite(.timeLimit(.minutes(1))) struct SamplingEngineTests {
     let clock = ManualClock()
 
@@ -210,6 +263,7 @@ final class CountingCollector: MetricCollector {
         let healthyChannel = await engine.register("memory", collector: healthy)
         broken.setFailing(true)
         _ = await engine.acquire("cpu")
+        await clock.waitForSleeper()  // the cpu tick has finished
         _ = await engine.acquire("memory")
         await clock.waitForSleeper()
         #expect(brokenChannel.status == .unavailable("sensor gone"))
@@ -279,6 +333,21 @@ final class CountingCollector: MetricCollector {
         await clock.waitForSleeper()
         clock.advance(by: .seconds(1))
         #expect(await iterator.next() == .value(2))
+    }
+
+    @Test func acquiringAnotherMetricDuringATickDoesNotSampleTheFirstTwice() async {
+        let engine = SamplingEngine(clock: clock)
+        let gated = GatedCollector()
+        let memory = CountingCollector()
+        _ = await engine.register("cpu", collector: gated)
+        _ = await engine.register("memory", collector: memory)
+        _ = await engine.acquire("cpu")
+        await gated.waitUntilInside()  // the cpu tick is in flight: the actor is free
+        _ = await engine.acquire("memory")  // restarts the loop
+        gated.open()
+        await clock.waitForSleeper()
+        #expect(gated.callCount == 1)
+        #expect(memory.callCount == 1)
     }
 
     @Test func acquiringAnUnregisteredMetricDoesNotStartTheTimer() async {

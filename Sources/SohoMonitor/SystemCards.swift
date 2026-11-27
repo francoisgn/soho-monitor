@@ -16,7 +16,8 @@ struct CPUCard: View {
             )
             .help(usage.map(Self.detail) ?? "")
             ThinBar(fraction: usage?.total, tint: tint)
-            Sparkline(values: history, capacity: SystemModel.historyCapacity, tint: tint)
+            // No value now: no old history either, next to a dash.
+            Sparkline(values: usage == nil ? [] : history, capacity: SystemModel.historyCapacity, tint: tint)
             PillRow(pills: StatusPill.pills(for: status) + info.pills.map { InfoPill(text: $0) })
         }
     }
@@ -41,7 +42,7 @@ struct MemoryCard: View {
             )
             .help(reading?.breakdown ?? "")
             ThinBar(fraction: reading?.usedFraction, tint: tint)
-            Sparkline(values: history, capacity: SystemModel.historyCapacity, tint: tint)
+            Sparkline(values: reading == nil ? [] : history, capacity: SystemModel.historyCapacity, tint: tint)
             PillRow(pills: StatusPill.pills(for: status) + Self.pills(reading))
         }
     }
@@ -59,13 +60,15 @@ struct MemoryCard: View {
     }
 }
 
-/// "Sampling…" while loading, "Unavailable" (reason on hover) after a failure; nothing once there is a value.
+/// "Sampling…" while loading; after a failure, the reason itself in a red pill (truncated, whole text on hover);
+/// nothing once there is a value.
 enum StatusPill {
     static func pills<Value>(for status: MetricStatus<Value>) -> [InfoPill] {
         switch status {
         case .loading: [InfoPill(text: "Sampling…")]
         case .value: []
-        case .unavailable(let reason): [InfoPill(text: "Unavailable", tint: CardColor.critical, help: reason)]
+        case .unavailable(let reason):
+            [InfoPill(text: reason, tint: CardColor.critical, help: "Unavailable: \(reason)")]
         }
     }
 }

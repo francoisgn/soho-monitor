@@ -50,8 +50,8 @@ final class DesktopPanelController {
         reportOnScreen()
     }
 
-    /// Live sampling runs only while this is true: a hidden panel, or one covered by full-screen windows, or on a
-    /// locked or sleeping display, costs nothing.
+    /// Live sampling runs only while this is true: a hidden panel, or one AppKit reports as fully occluded (covered
+    /// by other windows), costs nothing.
     var isOnScreen: Bool { panel.isVisible && panel.occlusionState.contains(.visible) }
 
     private func reportOnScreen() {
