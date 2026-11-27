@@ -129,7 +129,11 @@ struct InfoPill: View {
             if let tint {
                 Circle().fill(tint.gradient).frame(width: 6, height: 6)
             }
-            Text(text).truncationMode(.tail).accessibilityLabel(spoken ?? text)
+            if let spoken {
+                Text(text).truncationMode(.tail).accessibilityLabel(spoken)
+            } else {
+                Text(text).truncationMode(.tail)
+            }
         }
         .font(.system(size: 10.5, weight: .medium, design: .rounded))
         .monospacedDigit()
@@ -181,8 +185,8 @@ struct Sparkline: View {
             if heights.count >= 2 {
                 let step = size.width / CGFloat(max(1, capacity - 1))
                 let start = size.width - step * CGFloat(heights.count - 1)
-                let points = heights.enumerated().map { index, height in
-                    CGPoint(x: start + step * CGFloat(index), y: size.height * (1 - CGFloat(height)))
+                let points = heights.enumerated().map { index, level in
+                    CGPoint(x: start + step * CGFloat(index), y: size.height * (1 - CGFloat(level)))
                 }
                 Path { path in
                     path.move(to: CGPoint(x: points[0].x, y: size.height))
