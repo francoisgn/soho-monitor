@@ -1,0 +1,142 @@
+import Foundation
+
+/// One line of `du` output: a path and its size in bytes.
+public struct DuEntry: Sendable, Equatable {
+    public var path: String
+    public var bytes: Int64
+
+    public init(path: String, bytes: Int64) {
+        self.path = path
+        self.bytes = bytes
+    }
+}
+
+/// What one `du -k -d 1 <path>` pass tells: the total, the direct sub-folders, and whether some of it was unreadable.
+public struct DuMeasurement: Sendable, Equatable {
+    public var path: String
+    public var bytes: Int64
+    public var children: [DuEntry]
+    public var partial: Bool
+
+    public init(path: String, bytes: Int64, children: [DuEntry], partial: Bool) {
+        self.path = path
+        self.bytes = bytes
+        self.children = children
+        self.partial = partial
+    }
+}
+
+/// Parser of `du -k -d 1` output (BSD and GNU): `<KiB>\t<path>` per line, the measured path itself included.
+public enum DuOutput {
+    /// Messages `du` prints on stderr when it cannot enter a folder: the total is then a lower bound.
+    static let accessDeniedMarkers = ["Operation not permitted", "Permission denied"]
+
+    public static func parse(path: String, stdout: String, stderr: String) -> DuMeasurement {
+        var total: Int64 = 0
+        var children: [DuEntry] = []
+        for line in stdout.split(separator: "\n", omittingEmptySubsequences: true) {
+            // Only the first tab separates the size: a tab inside a file name stays in the path.
+            guard let tab = line.firstIndex(of: "\t") else { continue }
+            let size = line[..<tab]
+            let entryPath = String(line[line.index(after: tab)...])
+            guard !entryPath.isEmpty, !size.isEmpty, size.allSatisfy(\.isASCII), let kib = Int64(size) else {
+                continue
+            }
+            let bytes = kib.multipliedReportingOverflow(by: 1024)
+            guard !bytes.overflow else { continue }
+            if entryPath == path {
+                total = bytes.partialValue
+            } else {
+                children.append(DuEntry(path: entryPath, bytes: bytes.partialValue))
+            }
+        }
+        let partial = accessDeniedMarkers.contains { stderr.contains($0) }
+        return DuMeasurement(path: path, bytes: total, children: children, partial: partial)
+    }
+}
+
+/// The counting rules of the disk module, applied path after path in configuration order:
+/// - a path already counted (itself or a folder containing it) adds nothing;
+/// - a path containing folders counted earlier adds its size minus their **net** values (never subtracted twice),
+///   clamped at 0 (APFS clones are counted in full by `du`);
+/// - the top-3 candidates of a group are the direct sub-folders of its paths, each net of what was counted at or
+///   below it, or the path itself when it has no sub-folder.
+public struct DiskTally: Sendable {
+    private struct Category {
+        var group: String
+        var label: String
+        var bytes: Int64 = 0
+        var partial = false
+    }
+
+    private var categories: [Category] = []
+    /// Net bytes of each counted path.
+    private var counted: [String: Int64] = [:]
+    private var candidates: [TopFolder] = []
+    private var groupOrder: [String] = []
+
+    public init() {}
+
+    public mutating func startCategory(group: String, label: String) {
+        categories.append(Category(group: group, label: label))
+        if !groupOrder.contains(group) { groupOrder.append(group) }
+    }
+
+    /// True when `path`, or a folder containing it, has already been counted: measuring it again is useless.
+    public func isCounted(_ path: String) -> Bool {
+        counted.keys.contains { $0 == path || path.hasPrefix(Self.folderPrefix($0)) }
+    }
+
+    /// Adds one measured path to the current category.
+    public mutating func add(_ m: DuMeasurement) {
+        guard !categories.isEmpty, !isCounted(m.path) else { return }
+        let group = categories[categories.count - 1].group
+        let net = max(0, m.bytes - countedBelow(m.path))
+        if m.children.isEmpty {
+            if net > 0 { candidates.append(TopFolder(group: group, path: m.path, bytes: net)) }
+        } else {
+            for child in m.children {
+                let childNet = child.bytes - countedAtOrBelow(child.path)
+                if childNet > 0 { candidates.append(TopFolder(group: group, path: child.path, bytes: childNet)) }
+            }
+        }
+        counted[m.path] = net
+        categories[categories.count - 1].bytes += net
+        if m.partial { categories[categories.count - 1].partial = true }
+    }
+
+    /// Adds bytes that do not come from `du` (iOS runtimes) to the current category.
+    public mutating func addBytes(_ bytes: Int64, partial: Bool) {
+        guard !categories.isEmpty else { return }
+        categories[categories.count - 1].bytes += max(0, bytes)
+        if partial { categories[categories.count - 1].partial = true }
+    }
+
+    /// Categories in configuration order, and the three biggest candidates of each group (by group order, then
+    /// size, then path for a stable result).
+    public func finish() -> (categories: [CategoryUsage], tops: [TopFolder]) {
+        let usages = categories.map {
+            CategoryUsage(group: $0.group, label: $0.label, bytes: $0.bytes, partial: $0.partial)
+        }
+        let byGroup = Dictionary(grouping: candidates, by: \.group)
+        let tops = groupOrder.flatMap { group in
+            (byGroup[group] ?? [])
+                .sorted { $0.bytes != $1.bytes ? $0.bytes > $1.bytes : $0.path < $1.path }
+                .prefix(3)
+        }
+        return (usages, tops)
+    }
+
+    private static func folderPrefix(_ path: String) -> String {
+        path.hasSuffix("/") ? path : path + "/"
+    }
+
+    private func countedBelow(_ path: String) -> Int64 {
+        let prefix = Self.folderPrefix(path)
+        return counted.reduce(0) { $0 + ($1.key.hasPrefix(prefix) ? $1.value : 0) }
+    }
+
+    private func countedAtOrBelow(_ path: String) -> Int64 {
+        (counted[path] ?? 0) + countedBelow(path)
+    }
+}
