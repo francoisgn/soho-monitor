@@ -179,3 +179,50 @@ import Testing
         func append(_ value: String) { values.append(value) }
     }
 }
+
+@Suite struct SavedPasswordTestTests {
+    @Test func aTestRunsOnceAtATime() {
+        var state = SavedPasswordTest()
+        let ticket = state.begin()
+        #expect(ticket != nil)
+        #expect(state.phase == .testing)
+        #expect(state.begin() == nil)
+        if let ticket {
+            #expect(state.finish(ticket, with: .success(.pinnedExpired)) == .done(.success(.pinnedExpired)))
+        }
+        #expect(state.phase == .passed(.pinnedExpired))
+        #expect(state.begin() != nil)
+    }
+
+    @Test func aFailureIsKept() throws {
+        var state = SavedPasswordTest()
+        let ticketTicket = state.begin()
+        let ticket = try #require(ticketTicket)
+        #expect(
+            state.finish(ticket, with: .failure(.keychain(.accessDenied))) == .done(.failure(.keychain(.accessDenied))))
+        #expect(state.phase == .failed(.keychain(.accessDenied)))
+    }
+
+    @Test func aResultOvertakenByAResetIsDropped() throws {
+        var state = SavedPasswordTest()
+        let staleTicket = state.begin()
+        let stale = try #require(staleTicket)
+        state.reset()  // config change, save or remove
+        #expect(state.phase == .idle)
+        let freshTicket = state.begin()
+        let fresh = try #require(freshTicket)
+        #expect(state.finish(stale, with: .failure(.invalidCredentials)) == .overtaken)
+        #expect(state.phase == .testing)
+        #expect(state.finish(fresh, with: .success(.trusted)) == .done(.success(.trusted)))
+        #expect(state.phase == .passed(.trusted))
+    }
+
+    @Test func aResultAfterAResetWithoutANewTestIsDropped() throws {
+        var state = SavedPasswordTest()
+        let staleTicket = state.begin()
+        let stale = try #require(staleTicket)
+        state.reset()
+        #expect(state.finish(stale, with: .success(.trusted)) == .overtaken)
+        #expect(state.phase == .idle)
+    }
+}

@@ -21,7 +21,7 @@ struct SynologyCardContent: View {
     var config: SynologyConfig
     var credentials: SynologyModel.Credentials
     var trust: TLSTrustState?
-    var savedTest: SynologyModel.SavedPasswordTest = .idle
+    var savedTest: SavedPasswordTest.Phase = .idle
     var onSetUp: () -> Void
     var onTestSaved: () -> Void = {}
 
@@ -89,6 +89,7 @@ struct CredentialForm: View {
         case savedWorks(TLSTrustState)
         case saved(TLSTrustState)
         case removed
+        case notice(String)
         case failed(DSMError)
         case keychainFailed(SecretStoreError)
     }
@@ -98,8 +99,7 @@ struct CredentialForm: View {
     var onTest: (String) async -> Result<TLSTrustState, DSMError>
     var onSave: (String) async -> CredentialSetupOutcome
     var onRemove: () async -> SecretStoreError?
-    /// Nil when a test of the saved password is already running (from the card).
-    var onTestSaved: () async -> Result<TLSTrustState, DSMError>? = { nil }
+    var onTestSaved: () async -> SavedPasswordTestReply = { .alreadyRunning }
     @State var status: Status = .idle
     @State private var password = ""
     /// Whether a password is saved, once this window has saved, removed or found it missing.
@@ -192,10 +192,11 @@ struct CredentialForm: View {
         status = .busy("Reading the saved password, then testing…")
         Task {
             switch await onTestSaved() {
-            case nil: status = .idle
-            case .success(let state): status = .savedWorks(state)
-            case .failure(.keychain(let error)): status = .keychainFailed(error)
-            case .failure(let error):
+            case .alreadyRunning: status = .notice("A test of the saved password is already running: see the NAS card.")
+            case .overtaken: status = .notice("The settings or the password changed during the test: test again.")
+            case .done(.success(let state)): status = .savedWorks(state)
+            case .done(.failure(.keychain(let error))): status = .keychainFailed(error)
+            case .done(.failure(let error)):
                 if error == .needsSetup { savedNow = false }
                 status = .failed(error)
             }
@@ -225,6 +226,8 @@ private struct StatusRow: View {
             success("Saved in the Keychain.", trust: trust)
         case .removed:
             Label("Password removed from the Keychain.", systemImage: "trash").foregroundStyle(.secondary)
+        case .notice(let text):
+            Label(text, systemImage: "info.circle").foregroundStyle(.secondary)
         case .failed(let error):
             VStack(alignment: .leading, spacing: 6) {
                 Label(error.message.capitalizedFirst, systemImage: "xmark.octagon.fill").foregroundStyle(.red)
