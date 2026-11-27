@@ -125,8 +125,8 @@ disk:
 # the app (docs/adr/0001-claude-usage-source.md): it needs Node.js 18.14+ and Claude Code installed, and each profile
 # logged in once (`CLAUDE_CONFIG_DIR=<config_dir> claude`, then /login). No prompt is sent, nothing is spent.
 claude:
-  # Minutes between two refreshes (1 to 1440), only while the desktop panel is shown; showing the panel refreshes
-  # figures older than this at once.
+  # Minutes between two refreshes (1 to 1440), only while the desktop panel is shown; showing the panel refreshes at
+  # once each profile last tried at least this long ago.
   refresh_minutes: 5
   # label        name shown in the card (unique)
   # config_dir   the profile's CLAUDE_CONFIG_DIR (`~` allowed); a missing directory is a warning, and the card

@@ -105,8 +105,8 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
   `claude`** for the data behind `/usage`, with the profile's own login (`CLAUDE_CONFIG_DIR`). No prompt is sent
   (nothing is spent) and the app never reads a token, a credentials file or the Keychain. The figures come from
   your plan's usage on the server, so they include work done elsewhere.
-- **Refresh**: every `claude.refresh_minutes` (default 5) and only while the panel is shown; showing it refreshes
-  figures older than that. One profile at a time, at background priority, 30 s timeout.
+- **Refresh**: every `claude.refresh_minutes` (default 5) and only while the panel is shown; showing it refreshes at
+  once each profile last tried at least that long ago. One profile at a time, at background priority, 30 s timeout.
 - **Requirements**: Node.js 18.14+ and Claude Code, found in your login shell's `PATH` or in `/opt/homebrew/bin`,
   `/usr/local/bin`, `~/.local/bin`; each profile logged in once (`CLAUDE_CONFIG_DIR=<dir> claude`, then `/login`).
   Building the app needs `npm` (`scripts/bundle-app.sh` installs the helper's pinned dependency from its lockfile).

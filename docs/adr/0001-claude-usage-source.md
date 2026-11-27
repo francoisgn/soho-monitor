@@ -32,8 +32,8 @@ behind Claude Code's `/usage`, fetched by the **unmodified `claude` binary** wit
   `weekly_all` (all models), `weekly_scoped` (one model, `scope.model.display_name`, e.g. "Fable"). Unknown kinds and
   fields are ignored. The colour comes from the server's `severity` (`normal`, `warning`, `critical`): the client
   never grades a row itself.
-- Refresh: every `claude.refresh_minutes` (default 5) while the desktop panel is visible, and when it is shown if the
-  figures are older than that. One profile at a time, at background quality of service, 30 s timeout.
+- Refresh: every `claude.refresh_minutes` (default 5) while the desktop panel is visible; showing it refreshes at once
+  each profile last tried at least that long ago. One profile at a time, background quality of service, 30 s timeout.
 
 ### Sample (figures only, from the spike)
 
