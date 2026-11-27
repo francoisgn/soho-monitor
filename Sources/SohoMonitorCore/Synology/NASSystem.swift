@@ -36,6 +36,13 @@ public struct NASSystem: Sendable, Equatable {
         self.uptime = uptime
     }
 
+    /// The Mac's own CPU card thresholds (70 % / 90 %, `CPUUsage.level`).
+    public var cpuLevel: MetricLevel { MetricLevel(fraction: cpu, warning: 0.7, critical: 0.9) }
+    /// The Mac's memory card thresholds without pressure (85 % / 95 %, `MemoryReading.level`).
+    public var memoryLevel: MetricLevel { MetricLevel(fraction: memory, warning: 0.85, critical: 0.95) }
+    /// As the CPU: a disk busy most of the time slows everything down.
+    public var diskActivityLevel: MetricLevel { MetricLevel(fraction: diskActivity, warning: 0.7, critical: 0.9) }
+
     /// From the response bodies; `info` nil (not fetched or failed) leaves its fields empty.
     public static func decode(utilization: Data, info: Data?) throws(DSMError) -> NASSystem {
         let load = try DSMEnvelope.data(Utilization.self, from: utilization, api: "SYNO.Core.System.Utilization")
@@ -137,6 +144,11 @@ public struct NASUpdate: Sendable, Equatable {
 }
 
 public enum NASFormat {
+    /// "DSM 7.1.1-42962 Update 9" → "DSM 7.1.1": the build and update number go to the tooltip.
+    public static func shortVersion(_ version: String) -> String {
+        String(version.prefix { $0 != "-" }).trimmingCharacters(in: .whitespaces)
+    }
+
     /// "77 d 8 h", "12 h 30 min", "10 min", "< 1 min".
     public static func uptime(_ seconds: TimeInterval) -> String {
         let total = Int(max(seconds, 0))

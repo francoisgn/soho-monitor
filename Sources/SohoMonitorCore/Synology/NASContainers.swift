@@ -77,6 +77,11 @@ public struct NASContainerList: Sendable, Equatable {
     /// `total` as DSM reports it; more than `containers.count` when the answer was cut.
     public var total: Int
 
+    public init(containers: [NASContainer], total: Int) {
+        self.containers = containers
+        self.total = total
+    }
+
     public var running: Int { containers.count { $0.state == .running || $0.state == .unhealthy } }
 
     public static func decode(_ body: Data, expectedStopped: Set<String>) throws(DSMError) -> NASContainerList {

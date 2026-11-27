@@ -71,6 +71,20 @@ public struct NASVolume: Sendable, Equatable {
     /// `space_status.detail` when DSM gives one ("fs_almost_full"), for the tooltip.
     public var detail: String?
 
+    public init(name: String, total: UInt64?, used: UInt64?, health: NASHealth, detail: String?) {
+        self.name = name
+        self.total = total
+        self.used = used
+        self.health = health
+        self.detail = detail
+    }
+
+    /// "almost full" for the one detail recorded (`fs_almost_full`), else the health's label.
+    public var statusText: String {
+        if health != .normal, detail == "fs_almost_full" { return "almost full" }
+        return health.label
+    }
+
     public var usedFraction: Double? {
         guard let total, let used, total > 0 else { return nil }
         return Double(used) / Double(total)
@@ -81,6 +95,11 @@ public struct NASPool: Sendable, Equatable {
     /// `desc` ("SHR", "RAID 5"), else the id.
     public var name: String
     public var health: NASHealth
+
+    public init(name: String, health: NASHealth) {
+        self.name = name
+        self.health = health
+    }
 }
 
 public struct NASDisk: Sendable, Equatable {
@@ -89,6 +108,12 @@ public struct NASDisk: Sendable, Equatable {
     public var health: NASHealth
     /// °C.
     public var temperature: Int?
+
+    public init(name: String, health: NASHealth, temperature: Int?) {
+        self.name = name
+        self.health = health
+        self.temperature = temperature
+    }
 }
 
 /// `SYNO.Storage.CGI.Storage` `load_info` v1, the call DSM's Storage Manager makes. Only the fields below are decoded:
@@ -97,6 +122,12 @@ public struct NASStorage: Sendable, Equatable {
     public var volumes: [NASVolume]
     public var pools: [NASPool]
     public var disks: [NASDisk]
+
+    public init(volumes: [NASVolume], pools: [NASPool], disks: [NASDisk]) {
+        self.volumes = volumes
+        self.pools = pools
+        self.disks = disks
+    }
 
     /// Pools first, then disks: the worst of them, named ("Pool SHR", "Drive 2").
     public var hardware: NASHealthSummary {

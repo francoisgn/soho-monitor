@@ -2,18 +2,37 @@ import AppKit
 import SohoMonitorCore
 import SwiftUI
 
-/// The NAS card while the data cards (#23–#27) are not there yet: host, credential state and TLS warning, with the
-/// button to the credential window.
+/// The NAS card: its data (`NASCard`) once a password is saved and accepted; otherwise the setup content (host,
+/// credential state, TLS warning, buttons to test and to open the credential window), with the reason a saved
+/// password was refused.
 struct SynologyCard: View {
     let model: SynologyModel
 
     var body: some View {
         if let config = model.config {
-            SynologyCardContent(
-                config: config, credentials: model.credentials, trust: model.lastTrust,
-                savedTest: model.savedTest, onSetUp: model.presentSetup,
-                onTestSaved: { Task { await model.testSavedPassword() } })
+            if model.credentials == .saved, let state = model.nas, !Self.needsCredentials(state) {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    NASCard(
+                        config: config, state: state, tlsFailure: model.tlsFailure, trust: model.lastTrust,
+                        now: context.date)
+                }
+            } else {
+                SynologyCardContent(
+                    config: config, credentials: model.credentials, trust: model.lastTrust,
+                    savedTest: model.savedTest, refusal: model.nas.flatMap(Self.refusal),
+                    onSetUp: model.presentSetup, onTestSaved: { Task { await model.testSavedPassword() } })
+            }
         }
+    }
+
+    private static func needsCredentials(_ state: RemoteState<NASSnapshot>) -> Bool {
+        refusal(state) != nil || state == .needsSetup
+    }
+
+    /// Why polling stopped on the saved password.
+    private static func refusal(_ state: RemoteState<NASSnapshot>) -> String? {
+        if case .authFailed(let message) = state { return message }
+        return nil
     }
 }
 
@@ -22,6 +41,8 @@ struct SynologyCardContent: View {
     var credentials: SynologyModel.Credentials
     var trust: TLSTrustState?
     var savedTest: SavedPasswordTest.Phase = .idle
+    /// The saved password was refused while polling (the card's data stopped).
+    var refusal: String?
     var onSetUp: () -> Void
     var onTestSaved: () -> Void = {}
 
@@ -57,7 +78,7 @@ struct SynologyCardContent: View {
         case .missing: "Needs setup: no password saved for \(config.user)"
         case .saved:
             switch savedTest {
-            case .idle: "Credentials saved for \(config.user)"
+            case .idle: refusal?.capitalizedFirst ?? "Credentials saved for \(config.user)"
             case .testing: "Testing the saved password…"
             case .passed: "Saved password works for \(config.user)"
             case .failed(let error): error.message.capitalizedFirst
@@ -67,7 +88,9 @@ struct SynologyCardContent: View {
     }
 
     private var statusStyle: AnyShapeStyle {
-        if credentials == .saved, case .failed = savedTest { AnyShapeStyle(.red) } else { AnyShapeStyle(.secondary) }
+        if credentials == .saved, case .failed = savedTest { return AnyShapeStyle(.red) }
+        if credentials == .saved, savedTest == .idle, refusal != nil { return AnyShapeStyle(.red) }
+        return AnyShapeStyle(.secondary)
     }
 }
 
@@ -250,7 +273,7 @@ private struct StatusRow: View {
     }
 }
 
-private struct FingerprintRow: View {
+struct FingerprintRow: View {
     var fingerprint: CertificateFingerprint
 
     var body: some View {
@@ -280,7 +303,7 @@ private struct FingerprintRow: View {
 }
 
 extension String {
-    fileprivate var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }
 
 /// The credential window, created once and brought to the front on demand. The app has no Dock icon: it is

@@ -280,3 +280,29 @@ enum NASFixtures {
         #expect(list.containers.first?.state == .stopped(exitCode: nil))
     }
 }
+
+@Suite struct NASDisplayTests {
+    @Test func loadLevelsUseTheMacCardsThresholds() {
+        let system = NASSystem(cpu: 0.92, memory: 0.86, diskActivity: 0.5)
+        #expect(system.cpuLevel == .critical)  // CPU card: 70 % / 90 %
+        #expect(system.memoryLevel == .warning)  // memory card: 85 % / 95 %
+        #expect(system.diskActivityLevel == .normal)  // as CPU
+        #expect(NASSystem().cpuLevel == .normal)
+    }
+
+    @Test(arguments: [
+        ("DSM 7.1.1-42962 Update 9", "DSM 7.1.1"), ("DSM 7.2.2-72806 Update 11", "DSM 7.2.2"), ("DSM 7.2", "DSM 7.2"),
+    ])
+    func shortVersion(_ full: String, _ short: String) {
+        #expect(NASFormat.shortVersion(full) == short)
+    }
+
+    @Test func volumeStatusText() {
+        var volume = NASVolume(name: "volume1", total: 10, used: 9, health: .attention, detail: "fs_almost_full")
+        #expect(volume.statusText == "almost full")
+        volume.detail = "something_internal"
+        #expect(volume.statusText == "Attention")  // internal codes stay in the tooltip
+        volume.health = .normal
+        #expect(volume.statusText == "Healthy")
+    }
+}
