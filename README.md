@@ -59,7 +59,7 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
 - **Menu**: summary line ("Macintosh HD: 183.9 GB free of 494.4 GB"), last update or "Scanning…", configuration or
   scan errors, Show / Hide Panel, Tile Opacity, Rescan Now, Quit.
 - **Tile Opacity** (menu): Glass (default, the plain Liquid Glass look), Light Frost, Frosted, Solid or Opaque, applied
-  at once to the CPU, memory, disk and Synology cards and remembered across launches. Nothing more transparent than
+  at once to every card of the desktop panel and remembered across launches. Nothing more transparent than
   plain glass: its blur keeps the text legible over a busy wallpaper. With Reduce Transparency on (System Settings ›
   Accessibility › Display), the cards are opaque whatever the choice.
 - **Scan**: every configured path is measured with `du -k -d 1` (one pass gives its size and its direct
