@@ -28,6 +28,15 @@ final class StubTransport: HTTPTransport {
         state.withLock { $0.replies[key, default: []].append(contentsOf: json.map { .success(Reply(body: $0)) }) }
     }
 
+    /// Replaces the scripted replies of `key`.
+    func replace(_ key: String, _ replies: Result<Reply, TransportError>...) {
+        state.withLock { $0.replies[key] = replies }
+    }
+
+    func replace(_ key: String, json: String...) {
+        state.withLock { $0.replies[key] = json.map { .success(Reply(body: $0)) } }
+    }
+
     var requests: [HTTPRequest] { state.withLock { $0.requests } }
 
     func requests(_ key: String) -> [HTTPRequest] {
