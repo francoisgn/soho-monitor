@@ -60,6 +60,10 @@ public struct UsageLimit: Sendable, Equatable {
     /// Used share at or above which a row is critical, whatever the pace (operator request, #78).
     public static let criticalPercent: Double = 90
 
+    /// Percentage points a row may run ahead of the steady pace before it turns yellow, so a few percent used right
+    /// after a reset stays green (operator decision, #82).
+    public static let paceMarginPercent: Double = 5
+
     /// Share of the window elapsed at `now`, 0 to 100: what a steady pace would have used (5 hours: 20 % an hour).
     /// Nil without a reset time or a window length. A clock past the reset reads 100; a reset more than one window
     /// away (clock skew) reads 0.
@@ -69,13 +73,13 @@ public struct UsageLimit: Sendable, Equatable {
         return elapsed * 100 / window
     }
 
-    /// The colour reading: critical at 90 % or more; warning when used faster than the window's pace; normal
-    /// otherwise. Never milder than the server's `severity`.
+    /// The colour reading: critical at 90 % or more; warning when the used share is more than the window's
+    /// elapsed share plus `paceMarginPercent`; normal otherwise. Never milder than the server's `severity`.
     public func reading(now: Date) -> UsageSeverity {
         let pace: UsageSeverity
         if percent >= Self.criticalPercent {
             pace = .critical
-        } else if let expected = expectedPercent(now: now), percent > expected {
+        } else if let expected = expectedPercent(now: now), percent > expected + Self.paceMarginPercent {
             pace = .warning
         } else {
             pace = .normal

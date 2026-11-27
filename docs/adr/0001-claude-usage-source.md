@@ -2,6 +2,7 @@
 
 - Status: accepted (operator decision, 2026-11-27, [#36](https://github.com/francoisgn/soho-monitor/issues/36));
   amended 2026-11-27 by [#78](https://github.com/francoisgn/soho-monitor/issues/78) (pace colouring, see Decision)
+  and [#82](https://github.com/francoisgn/soho-monitor/issues/82) (5-point pace margin)
 - Scope: the Claude card ([#35](https://github.com/francoisgn/soho-monitor/issues/35)): 5-hour session, weekly and
   per-model weekly limits of the operator's Claude subscriptions, one Claude Code profile (config directory) each.
 
@@ -33,12 +34,13 @@ behind Claude Code's `/usage`, fetched by the **unmodified `claude` binary** wit
   `weekly_all` (all models), `weekly_scoped` (one model, `scope.model.display_name`, e.g. "Fable"). Unknown kinds and
   fields are ignored. The colour starts from the server's `severity` (`normal`, `warning`, `critical`), which the
   client never lowers. **Amendment (#78, operator request)**: the client raises it with a pace reading: warning
-  when the share used is above the elapsed share of the window (start = `resets_at` minus the window length:
-  5 hours for `session`, 7 days for `weekly_all` and `weekly_scoped`; inferred, since a row has no length field:
-  the SDK typings name "plan rate-limit utilization windows (5-hour, 7-day, per-model)" and the legacy
-  `five_hour` / `seven_day` / `seven_day_opus` fields),
-  critical at 90 % or more. No reset time or an unknown kind: no pace reading. This departs from the SDK's "a client
-  never grades a row itself" in one direction only (stricter, never milder than the server).
+  when the share used is more than the elapsed share of the window plus 5 percentage points (start = `resets_at`
+  minus the window length: 5 hours for `session`, 7 days for `weekly_all` and `weekly_scoped`; inferred, since a
+  row has no length field: the SDK typings name "plan rate-limit utilization windows (5-hour, 7-day, per-model)"
+  and the legacy `five_hour` / `seven_day` / `seven_day_opus` fields),
+  critical at 90 % or more. The 5-point margin was chosen by the operator in #82 (option B) so that a few percent
+  used right after a reset stays green. No reset time or an unknown kind: no pace reading. This departs from the
+  SDK's "a client never grades a row itself" in one direction only (stricter, never milder than the server).
 - Refresh: every `claude.refresh_minutes` (default 5) while the desktop panel is visible; showing it refreshes at once
   each profile last tried at least that long ago. One profile at a time, background quality of service, 30 s timeout.
 

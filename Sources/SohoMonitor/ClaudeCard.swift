@@ -120,7 +120,7 @@ private struct ClaudeAccountBlock: View {
     }
 }
 
-/// Reading → Apple system colour: green on pace, yellow ahead of it, red at 90 % or the server's critical.
+/// Reading → Apple system colour: green on pace, yellow more than 5 points ahead of it, red at 90 % or the server's critical.
 enum UsageColor {
     static func of(_ reading: UsageSeverity) -> Color {
         switch reading {
