@@ -32,6 +32,11 @@ Design: Apple system fonts (SF Pro, SF Pro Rounded for figures), native material
 subtle gradients, cards inspired by the system monitor of [OnlySwitch](https://github.com/jacklandrin/OnlySwitch)
 (MIT).
 
+App icon: three glass gauges (disk, CPU, Claude) on a night blue → indigo gradient, a layered Icon Composer file
+(`Resources/AppIcon.icon`) that macOS renders in default, dark, tinted and clear styles:
+
+![App icon: default, dark, tinted light, tinted dark, clear](docs/images/app-icon.png)
+
 ## Disk module
 
 A desktop card (above the wallpaper, below every window, on all Spaces) and a menu bar extra:
@@ -111,6 +116,7 @@ A category has either `paths` or `source`. Put the most specific paths first (De
 | `Sources/SohoMonitor/` | SwiftUI app: menu bar extra, desktop panel, cards |
 | `Tests/SohoMonitorCoreTests/` | Swift Testing suites |
 | `config/` | Example configuration |
+| `Resources/AppIcon.icon/` | App icon (Icon Composer package: `icon.json` and SVG layers), compiled by `actool` |
 | `scripts/bundle-app.sh` | Release build → `build/SohoMonitor.app` (menu bar app, Apple Development certificate if present, else ad hoc) |
 | `.harness/`, `.claude/`, `CLAUDE.md`, `AGENTS.md` | Rules for the coding agents ([Belayline](https://github.com/francoisgn/belayline-agentic-harness)) |
 

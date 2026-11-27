@@ -7,6 +7,9 @@ Notable changes, newest first. Entries accumulate under "Unreleased" until the f
 
 ### Added
 
+- App icon (#50): stacked glass gauges (blue, orange, purple) on a night blue → indigo gradient, an Icon Composer
+  package (`Resources/AppIcon.icon`) compiled by `actool` in `scripts/bundle-app.sh` into `Assets.car` (default,
+  dark, tinted, clear) and `AppIcon.icns`; without `actool` the app is built with the generic icon and a warning.
 - Disk module (#1): YAML configuration (`~/.config/soho-monitor/config.yaml`, example in `config/example.yaml`) with
   validation, line-located errors, live reload and last valid configuration kept; scanner (`du -k -d 1` at background
   QoS, subtraction of earlier categories, top 3 folders per group, partial flag, iOS runtimes from `simctl`, APFS

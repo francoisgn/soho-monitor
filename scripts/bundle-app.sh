@@ -45,6 +45,25 @@ cat >"$app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 plutil -lint "$app/Contents/Info.plist" >/dev/null || ko "invalid Info.plist"
+
+# App icon: actool (Xcode 26+) compiles the Icon Composer package into Assets.car (Liquid Glass, light / dark /
+# tinted) plus AppIcon.icns for older readers. actool exits 0 even when it compiles nothing, so the output is checked.
+# Without it, the app is built with the generic icon.
+icon_log="build/actool.log"
+echo "actool not found" >"$icon_log"
+if xcrun --find actool >/dev/null 2>&1 &&
+  xcrun actool Resources/AppIcon.icon --compile "$app/Contents/Resources" --platform macosx \
+    --minimum-deployment-target 26.0 --app-icon AppIcon --output-partial-info-plist "build/actool-partial.plist" \
+    --output-format human-readable-text >"$icon_log" 2>&1 &&
+  [ -f "$app/Contents/Resources/Assets.car" ] && [ -f "$app/Contents/Resources/AppIcon.icns" ]; then
+  plutil -replace CFBundleIconName -string AppIcon "$app/Contents/Info.plist"
+  plutil -replace CFBundleIconFile -string AppIcon "$app/Contents/Info.plist"
+  ok "app icon compiled"
+else
+  rm -f "$app/Contents/Resources/Assets.car" "$app/Contents/Resources/AppIcon.icns"
+  warn "app icon not compiled (actool from Xcode 26+ needed, see $icon_log): building without it"
+fi
+
 # Identity by SHA-1 hash: its name carries the developer's e-mail, which must not reach logs.
 identity="${CODESIGN_IDENTITY:-}"
 if [ -z "$identity" ]; then
