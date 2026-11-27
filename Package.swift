@@ -25,7 +25,9 @@ let package = Package(
         ),
         .testTarget(
             name: "SohoMonitorCoreTests",
-            dependencies: ["SohoMonitorCore"]
+            dependencies: ["SohoMonitorCore"],
+            // Anonymised DSM responses (Synology), read byte for byte.
+            resources: [.copy("Fixtures")]
         ),
     ]
 )
