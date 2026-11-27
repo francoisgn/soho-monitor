@@ -46,7 +46,8 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
 
 <p align="center"><img src="docs/images/disk-card.png" alt="Disk card" width="420"></p>
 
-- **Card**: volume name, "X of Y used", free-space pill (orange / red under the configured thresholds), one
+- **Card**: the CPU and memory cards' header (icon, "Disk", share of the disk used as the large figure; the volume
+  name is read by VoiceOver), "X of Y used", free-space pill (orange / red under the configured thresholds), one
   continuous segmented bar (groups by size, `macOS` and `Other` last), legend chips with their size and ⚠︎ when a
   group was measured partially. The legend shows the three biggest configured groups (`macOS` and `Other` only when
   fewer are configured); "+N more" unfolds every chip until "Less" or until the panel is hidden. Hover a segment

@@ -107,6 +107,11 @@ private func snapshot(_ categories: [CategoryUsage], total: Int64 = 500 * gb, fr
         #expect(groups[1].detail == "Photos: 30.0 GB")
     }
 
+    @Test func usedFractionIsUsedOverTotalAndNilWithoutADisk() {
+        #expect(DiskSummary.usedFraction(of: snapshot([], total: 500 * gb, free: 125 * gb)) == 0.75)
+        #expect(DiskSummary.usedFraction(of: snapshot([], total: 0, free: 0)) == nil)
+    }
+
     @Test func menuSummaryLine() {
         let s = snapshot([], total: 494_384_795_648, free: 183_916_957_696)
         #expect(DiskSummary.menuLine(of: s) == "Macintosh HD: 183.9 GB free of 494.4 GB")

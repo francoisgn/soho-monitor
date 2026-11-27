@@ -35,7 +35,7 @@ struct DiskCard: View {
                     TopFolders(group: group, tops: snapshot.tops.filter { $0.group == name })
                 }
             } else {
-                Text("Disk").font(.system(size: 15, weight: .semibold))
+                MetricHeader(symbol: "internaldrive", title: "Disk", figure: "—", tint: CardColor.disk, compact: true)
                 Text(model.isScanning ? "First scan in progress…" : "No disk data yet")
                     .font(.callout).foregroundStyle(.secondary)
             }
@@ -69,13 +69,24 @@ struct DiskCard: View {
         .onChange(of: model.snapshot?.updated) { hovered = nil }
     }
 
-    /// While a segment is hovered, its line replaces "X of Y used"; both stay in the layout (one hidden) so the card
-    /// keeps its size.
+    /// The CPU and memory cards' header (icon, "Disk", used share as the large figure), then "X of Y used" and the
+    /// free-space pill. While a segment is hovered, its line replaces "X of Y used"; both stay in the layout (one
+    /// hidden) so the card keeps its size. The volume name is left to VoiceOver: on the startup disk it repeats
+    /// "Disk".
     private func header(_ snapshot: DiskSnapshot, hoverText: String?, groups: [DiskGroup]) -> some View {
-        HStack(alignment: .lastTextBaseline) {
+        let figure = PercentFormat.whole(DiskSummary.usedFraction(of: snapshot))
+        return VStack(alignment: .leading, spacing: 6) {
+            MetricHeader(symbol: "internaldrive", title: "Disk", figure: figure, tint: CardColor.disk, compact: true)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Disk, \(snapshot.volume.isEmpty ? "startup disk" : snapshot.volume)")
+                .accessibilityValue("\(figure) used")
+            usageLine(snapshot, hoverText: hoverText, groups: groups)
+        }
+    }
+
+    private func usageLine(_ snapshot: DiskSnapshot, hoverText: String?, groups: [DiskGroup]) -> some View {
+        HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(snapshot.volume.isEmpty ? "Startup disk" : snapshot.volume)
-                    .font(.system(size: 15, weight: .semibold))
                 let used = Text(ByteFormat.short(snapshot.used))
                     .font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
                 ZStack(alignment: .leading) {
