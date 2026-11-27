@@ -149,14 +149,20 @@ public actor SamplingEngine<C: Clock> where C.Duration == Duration {
         return channel
     }
 
-    /// Starts sampling `id` (at once if it was not demanded yet) until the token is released.
+    /// Starts sampling `id` until the token is released: at once if it was not demanded, or one interval after its
+    /// last sample if that was less than an interval ago (a quick hide and show, possibly while that sample is still
+    /// in flight: never two samples of a metric at once, nor two within an interval).
     public func acquire(_ id: MetricID) -> DemandToken {
         serial += 1
         let token = DemandToken(metric: id, serial: serial)
-        guard entries[id] != nil else { return token }
-        let wasIdle = entries[id]?.demand.isEmpty ?? true
+        guard let entry = entries[id] else { return token }
+        let wasIdle = entry.demand.isEmpty
         entries[id]?.demand.insert(token.serial)
-        if wasIdle { restart() }
+        if wasIdle {
+            let next = entry.lastSample?.advanced(by: entry.interval)
+            entries[id]?.nextDue = next.flatMap { $0 > clock.now ? $0 : nil }
+            restart()
+        }
         return token
     }
 
@@ -164,7 +170,6 @@ public actor SamplingEngine<C: Clock> where C.Duration == Duration {
     public func release(_ token: DemandToken) {
         guard entries[token.metric]?.demand.remove(token.serial) != nil else { return }
         guard entries[token.metric]?.demand.isEmpty == true else { return }
-        entries[token.metric]?.nextDue = nil
         if entries.values.allSatisfy({ $0.demand.isEmpty }) {
             stop()
         }

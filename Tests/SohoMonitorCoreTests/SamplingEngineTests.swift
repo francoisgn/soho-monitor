@@ -350,6 +350,21 @@ final class GatedCollector: MetricCollector {
         #expect(memory.callCount == 1)
     }
 
+    @Test func releasingAndReacquiringDuringATickDoesNotOverlapIt() async {
+        let engine = SamplingEngine(clock: clock)
+        let gated = GatedCollector()
+        _ = await engine.register("cpu", collector: gated)
+        let token = await engine.acquire("cpu")
+        await gated.waitUntilInside()
+        await engine.release(token)  // the panel flaps hidden then shown while the tick is in flight
+        _ = await engine.acquire("cpu")
+        gated.open()
+        await clock.waitForSleeper()
+        #expect(gated.callCount == 1)
+        await tick()
+        #expect(gated.callCount == 2)  // back to one sample per interval
+    }
+
     @Test func acquiringAnUnregisteredMetricDoesNotStartTheTimer() async {
         let engine = SamplingEngine(clock: clock)
         _ = await engine.acquire("gpu")

@@ -117,7 +117,7 @@ final class DesktopPanelController {
     }
 
     /// After a resize (cards added, a group's top folders opened): back inside its screen's visible frame. The saved
-    /// position is left as is, so the panel returns there when it is short again.
+    /// position is not overwritten: the next launch starts from it (and is clamped again if needed).
     private func keepOnScreen() {
         guard let screen = panel.screen ?? NSScreen.main else { return }
         let origin = PanelPlacement.origin(of: panel.frame, within: screen.visibleFrame)
