@@ -44,15 +44,16 @@ App icon: three glass gauges (disk, CPU, Claude) on a night blue → indigo grad
 
 A desktop card (above the wallpaper, below every window, on all Spaces) and a menu bar extra:
 
-<p align="center"><img src="docs/images/disk-card.png" alt="Disk card" width="420"></p>
+<p align="center"><img src="docs/images/disk-card.png" alt="Disk card: 76 % used, macOS version and 117.8 GB free under it; thin segmented bar, 376.6 GB of 494.4 GB; Dev, Applications and Photos chips, +7 more" width="420"></p>
 
-- **Card**: the CPU and memory cards' header (icon, "Disk", share of the disk used as the large figure; the volume
-  name is read by VoiceOver), "X of Y used", free-space pill (orange / red under the configured thresholds), one
-  continuous segmented bar (groups by size, `macOS` and `Other` last), legend chips with their size and ⚠︎ when a
+- **Card**, laid out as the NAS card: the CPU and memory cards' header (icon, "Disk", share of the disk used as the
+  large figure; the volume name is read by VoiceOver), then the Mac's macOS version and build with the free space
+  just under the large figure (orange / red under the configured thresholds); one thin continuous segmented bar
+  (groups by size, `macOS` and `Other` last) with "X of Y" at its end; legend chips with their size and ⚠︎ when a
   group was measured partially. The legend shows the three biggest configured groups (`macOS` and `Other` only when
   fewer are configured); "+N more" unfolds every chip until "Less" or until the panel is hidden. Hover a segment
-  (free space included) or a chip to highlight it and read its name, size and share of the bar in place of "X of Y
-  used"; click a chip for the group's three biggest folders (name, path, size, gauge). Drag any card to move the
+  (free space included) or a chip to highlight it and read its name, size and share of the bar in place of the macOS
+  version; click a chip for the group's three biggest folders (name, path, size, gauge). Drag any card to move the
   panel, double-click one to put it back in its default place: the top-left corner of the main screen, under the menu
   bar. The panel hangs from its top-left corner (the one remembered), so it grows downward as cards are added or
   expand, and it is kept inside the screen (a panel taller than the screen keeps its top visible).

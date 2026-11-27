@@ -133,12 +133,14 @@ struct MetricHeader: View {
 /// The small figure under a card's large one ("792.6 GB free"): never truncated, the subtitle gives way.
 struct FigureCaption: View {
     var text: String
+    /// A level colour (orange, red); nil is the plain secondary text.
+    var tint: Color?
 
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .semibold, design: .rounded))
             .monospacedDigit()
-            .foregroundStyle(.secondary)
+            .foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
             .lineLimit(1)
             .fixedSize()
     }
@@ -182,6 +184,9 @@ struct InfoPill: View {
 
 /// A thin capsule bar, filled to `fraction` (clamped; nil shows an empty track).
 struct ThinBar: View {
+    /// Shared with the disk card's segmented bar, so both cards' bars look alike.
+    static let height: CGFloat = 5
+
     var fraction: Double?
     var tint: Color
 
@@ -191,7 +196,7 @@ struct ThinBar: View {
                 .fill(tint.gradient)
                 .frame(width: proxy.size.width * (fraction.flatMap(MetricFraction.clamped) ?? 0))
         }
-        .frame(height: 5)
+        .frame(height: Self.height)
         .background(.primary.opacity(0.10), in: .capsule)
         .clipShape(.capsule)
         .animation(.smooth, value: fraction)
