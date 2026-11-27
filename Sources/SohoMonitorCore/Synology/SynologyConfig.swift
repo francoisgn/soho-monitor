@@ -1,6 +1,14 @@
 import Foundation
 import Yams
 
+/// A part of the NAS card, and the DSM calls it costs; `synology.sections` turns them on one by one.
+public enum NASSectionKind: String, Sendable, CaseIterable, Hashable {
+    case storage
+    case system
+    case update
+    case docker
+}
+
 /// `synology:` section: one NAS reached through the DSM Web API, over HTTPS only. The password is never in the file:
 /// it lives in the Keychain under `keychain_item` (`SecretStore`).
 public struct SynologyConfig: Sendable, Equatable {
@@ -9,6 +17,9 @@ public struct SynologyConfig: Sendable, Equatable {
     /// Polling floor: a small NAS must not be woken up or loaded more often than this.
     public static let minimumIntervalSeconds = 60
     public static let maximumIntervalSeconds = 86_400
+    /// The DSM update check makes the NAS contact Synology's servers: rarely (#25), at most once an hour.
+    public static let defaultUpdateIntervalHours = 6
+    public static let updateIntervalHoursRange = 1...168
 
     public var host: String
     public var port: Int
@@ -18,10 +29,17 @@ public struct SynologyConfig: Sendable, Equatable {
     public var keychainItem: String
     public var tls: TLSPolicy
     public var intervalSeconds: Int
+    /// The card's parts that are fetched and shown; all by default.
+    public var sections: Set<NASSectionKind>
+    /// Container names whose stopped state is normal (a job run on demand): not highlighted.
+    public var expectedStopped: Set<String>
+    public var updateIntervalHours: Int
 
     public init(
         host: String, port: Int = defaultPort, user: String, keychainItem: String = defaultKeychainItem,
-        tls: TLSPolicy = .systemTrust, intervalSeconds: Int = minimumIntervalSeconds
+        tls: TLSPolicy = .systemTrust, intervalSeconds: Int = minimumIntervalSeconds,
+        sections: Set<NASSectionKind> = Set(NASSectionKind.allCases), expectedStopped: Set<String> = [],
+        updateIntervalHours: Int = defaultUpdateIntervalHours
     ) {
         self.host = host
         self.port = port
@@ -29,6 +47,9 @@ public struct SynologyConfig: Sendable, Equatable {
         self.keychainItem = keychainItem
         self.tls = tls
         self.intervalSeconds = intervalSeconds
+        self.sections = sections
+        self.expectedStopped = expectedStopped
+        self.updateIntervalHours = updateIntervalHours
     }
 
     /// `https://host:port`; the host was validated when the file was read.
@@ -52,7 +73,9 @@ extension Reader {
 
     mutating func readSynology(_ node: Node) -> SynologyConfig? {
         guard case .mapping(let mapping) = node else {
-            error(node, "synology", "expected a mapping (host, port, user, keychain_item, tls, interval_seconds)")
+            error(
+                node, "synology",
+                "expected a mapping (host, port, user, keychain_item, tls, interval_seconds, sections, …)")
             return nil
         }
         for (key, _) in mapping {
@@ -65,7 +88,10 @@ extension Reader {
         // The secret keys count as known here: already reported as errors above, not again as unknown.
         let keys = entries(
             mapping, at: "synology",
-            known: Self.secretKeys.union(["host", "port", "user", "keychain_item", "tls", "interval_seconds"]))
+            known: Self.secretKeys.union([
+                "host", "port", "user", "keychain_item", "tls", "interval_seconds", "sections", "expected_stopped",
+                "update_interval_hours",
+            ]))
         let errorCount = errors.count
 
         let host = nonEmptyString(keys["host"])
@@ -110,10 +136,64 @@ extension Reader {
             }
         }
         let tls = keys["tls"].map { readTLS($0, at: "synology.tls") } ?? .systemTrust
+        let sections = keys["sections"].map { readSections($0) } ?? Set(NASSectionKind.allCases)
+        let expectedStopped = keys["expected_stopped"].map { readNames($0, at: "synology.expected_stopped") } ?? []
+        var updateHours = SynologyConfig.defaultUpdateIntervalHours
+        if let node = keys["update_interval_hours"] {
+            if let value = wholeNumber(node), SynologyConfig.updateIntervalHoursRange.contains(value) {
+                updateHours = value
+            } else {
+                error(
+                    node, "synology.update_interval_hours",
+                    "must be a whole number of hours, at least 1 and at most 168 (the check contacts Synology)")
+            }
+        }
 
-        guard errors.count == errorCount, let host, let user, let tls else { return nil }
+        guard errors.count == errorCount, let host, let user, let tls, let sections, let expectedStopped else {
+            return nil
+        }
         return SynologyConfig(
-            host: host, port: port, user: user, keychainItem: keychainItem, tls: tls, intervalSeconds: interval)
+            host: host, port: port, user: user, keychainItem: keychainItem, tls: tls, intervalSeconds: interval,
+            sections: sections, expectedStopped: expectedStopped, updateIntervalHours: updateHours)
+    }
+
+    /// `sections:` a non-empty list of `storage`, `system`, `update`, `docker`. Nil after an error.
+    mutating func readSections(_ node: Node) -> Set<NASSectionKind>? {
+        let names = NASSectionKind.allCases.map(\.rawValue).joined(separator: ", ")
+        guard case .sequence(let sequence) = node, !sequence.isEmpty else {
+            error(node, "synology.sections", "expected a non-empty list of: \(names)")
+            return nil
+        }
+        var sections: Set<NASSectionKind> = []
+        var valid = true
+        for (index, item) in sequence.enumerated() {
+            if let name = nonEmptyString(item), let kind = NASSectionKind(rawValue: name.lowercased()) {
+                sections.insert(kind)
+            } else {
+                valid = false
+                error(item, "synology.sections[\(index)]", "must be one of: \(names)")
+            }
+        }
+        return valid ? sections : nil
+    }
+
+    /// A list of non-empty names (trimmed). Nil after an error.
+    mutating func readNames(_ node: Node, at keyPath: String) -> Set<String>? {
+        guard case .sequence(let sequence) = node else {
+            error(node, keyPath, "expected a list of container names")
+            return nil
+        }
+        var names: Set<String> = []
+        var valid = true
+        for (index, item) in sequence.enumerated() {
+            if let name = nonEmptyString(item) {
+                names.insert(name)
+            } else {
+                valid = false
+                error(item, "\(keyPath)[\(index)]", "must be a non-empty string")
+            }
+        }
+        return valid ? names : nil
     }
 
     /// `tls:` of a LAN host: `pin_sha256` or `allow_self_signed`, not both; neither (or an empty mapping) is system

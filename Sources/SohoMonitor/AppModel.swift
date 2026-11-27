@@ -14,6 +14,7 @@ final class AppModel {
         didSet {
             UserDefaults.standard.set(panelVisible, forKey: Self.panelVisibleKey)
             claude.setVisible(panelVisible)
+            synology.setVisible(panelVisible)
         }
     }
     /// How opaque the desktop panel's tiles are, picked in the menu bar menu. A UI preference saved in UserDefaults,
@@ -39,7 +40,8 @@ final class AppModel {
     }
     /// The Claude card's state; refreshed only while the panel is visible.
     let claude = ClaudeUsageModel()
-    /// The NAS module: configuration and Keychain state (credential window).
+    /// The NAS module: configuration, Keychain state (credential window) and the card's data, polled only while the
+    /// panel is visible.
     let synology = SynologyModel()
 
     @ObservationIgnored private let store: SnapshotStore
@@ -77,6 +79,7 @@ final class AppModel {
         snapshot = store.load()
         reloadConfig()
         claude.setVisible(panelVisible)
+        synology.setVisible(panelVisible)
         schedule()
         watchConfig()
         watchDisplayOptions()

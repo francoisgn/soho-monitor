@@ -77,6 +77,8 @@ public actor DSMClient {
     private var apis: [String: DSMAPI] = [:]
     private var session: Session?
     private var loginTask: Task<Session, any Error>?
+    /// Set by `close()`: no call, discovery or login is sent any more, and a login that was in flight is logged out.
+    private var closed = false
 
     /// `password` is asked for at each login only (lazily: no Keychain read before a request is needed).
     public init(
@@ -116,6 +118,13 @@ public actor DSMClient {
     /// Logs in now if there is no session (`Test connection`).
     public func login() async throws(DSMError) {
         _ = try await currentSession()
+    }
+
+    /// For good: logs out and refuses every later call (`.closed`). A call already running when it is closed cannot
+    /// leave a session open: a login that completes afterwards is logged out at once (a replaced poller's last cycle).
+    public func close() async {
+        closed = true
+        await logout()
     }
 
     /// Ends the session on the NAS (best effort) and forgets it.
@@ -163,6 +172,7 @@ public actor DSMClient {
     // MARK: Session
 
     private func currentSession() async throws(DSMError) -> Session {
+        if closed { throw .closed }
         if let session { return session }
         return try await renewSession(replacing: nil)
     }
@@ -183,6 +193,10 @@ public actor DSMClient {
         switch result {
         case .success(let fresh):
             session = fresh
+            if closed {
+                await logout()
+                throw .closed
+            }
             return fresh
         case .failure(let error):
             throw (error as? DSMError) ?? .invalidResponse("login failed")

@@ -34,6 +34,8 @@ public enum DSMError: Error, Sendable, Equatable {
     case api(name: String, code: Int)
     /// Not the documented JSON envelope (HTTP error, HTML page, `success: false` without a code).
     case invalidResponse(String)
+    /// `DSMClient.close()` was called (configuration or password changed): nothing more is sent.
+    case closed
 
     /// Codes after which one fresh login and one retry are attempted: 105 (no permission, also what an expired sid
     /// can yield), 106 (session timeout), 107 (interrupted by a duplicate login), 119 (invalid session).
@@ -83,6 +85,7 @@ public enum DSMError: Error, Sendable, Equatable {
         case .apiUnavailable(let name): "\(name) is not available on this NAS"
         case .api(let name, let code): "\(name) failed (DSM error \(code))"
         case .invalidResponse(let detail): "unexpected answer from DSM (\(detail))"
+        case .closed: "the DSM connection was closed (configuration or password changed)"
         }
     }
 }

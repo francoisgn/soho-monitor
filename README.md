@@ -18,8 +18,8 @@
 
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
 widget (shell + JSX) with real glass and live sampling; the only helper is a small Node script for the Claude card
-(official Claude Agent SDK). Status: the **disk**, **CPU / memory** and **Claude** cards work; Synology is in progress
-(password, TLS policy and login test done, data cards next) and UniFi is planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
+(official Claude Agent SDK). Status: the **disk**, **CPU / memory**, **Claude** and **NAS** (Synology) cards work; UniFi is
+planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
 
 ## Features
 
@@ -27,7 +27,7 @@ widget (shell + JSX) with real glass and live sampling; the only helper is a sma
 |---|---|---|
 | Disk | Usage of the startup volume by configurable groups and categories (YAML), segmented bar, legend, top 3 folders per group, free space thresholds | 🟢 done |
 | System | CPU and memory cards (large figure, thin bar, sparkline of the last 120 samples, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
-| Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account. Done: `synology:` config, password in the Keychain (credential window, with a test of the saved password from the window or the NAS card), per-host TLS policy (system, pinned SHA-256, opt-out), DSM login client, polling engine with backoff for the data cards, which come next | 🔵 in progress |
+| Synology | NAS card: volume usage and health, storage pool and disk health, CPU · RAM · disk activity, temperature and uptime, Docker containers with a status dot, DSM update badge; DSM Web API with a dedicated account, password in the Keychain, per-host TLS policy (system, pinned SHA-256, opt-out), polled only while the panel is shown | 🟢 done |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
 | Claude | Usage of your Claude plans, one block per Claude Code profile: weekly limit bar, 5-hour session and per-model weekly lines (ring, percent, short reset time), pace colours | 🟢 done |
 
@@ -170,6 +170,48 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
 | `claude.accounts` | list | none (card off) | Claude Code profiles, shown in this order |
 | `claude.accounts[].label` | string, required | — | Name in the card; unique |
 | `claude.accounts[].config_dir` | string, required | — | The profile's `CLAUDE_CONFIG_DIR` (`~` allowed); unique; a missing directory is a warning and the app does not run Claude Code for it |
+
+## Synology module
+
+The NAS card, shown when the configuration has a `synology:` section. Until a password is saved it offers
+**Set Up…** (credential window: type the password, test the connection, save it in the Keychain) and **Test** (the
+saved password); then it shows the NAS's data:
+
+<p align="center"><img src="docs/images/nas-card.png" alt="NAS card: 90 % used, DS416play, DSM 7.1.1, 54 °C, up 77 days; volume bar 6.88 TB of 7.67 TB; volume almost full and pool attention dots, hottest disk 41 °C; CPU 79 %, RAM 31 %, disk 59 %; containers 6/6 running; DSM update badge" width="420"></p>
+<sub>Rendered from the anonymised test fixtures (`Tests/SohoMonitorCoreTests/Fixtures/Synology`), not a live NAS.</sub>
+
+- **Storage**: the first volume's used share as the large figure; one bar per volume, coloured by DSM's own health
+  (indigo when normal, orange attention or an unknown status, red degraded or crashed); a dot for the volume's health
+  ("almost full" when DSM says so) and one for the worst storage pool or disk, named when it is not healthy; the
+  hottest disk.
+- **System**: model, DSM version, temperature (orange when DSM raises its temperature warning) and uptime under the
+  title; CPU (user + system + other load), RAM (`real_usage`) and disk activity (how busy the disks were, all drives
+  together: `disk.total.utilization`) on one line, orange from 70 % (RAM 85 %), red from 90 % (RAM 95 %), as the Mac's cards.
+- **Containers**: running / total, then one dot per container, problems first: red unhealthy or exited with an
+  error, orange stopped, restarting or paused, grey stopped on purpose (`expected_stopped`), green running. Only
+  names, images and states are read: never environment variables, command lines or mounts.
+- **DSM update**: a badge with the new version when DSM has one, checked every `update_interval_hours`; nothing is
+  ever downloaded or installed.
+- **States**: a section that cannot be read (no permission for its API, DSM error) shows a red pill while the others
+  render; an API the account may not use is not asked again until the configuration or the password changes. When
+  the NAS does not answer, the last data stays dimmed with its age, then "Unreachable"; a refused password brings back
+  the setup content with the reason; a changed pinned certificate shows the fingerprint now presented.
+- **Polling**: every `interval_seconds` (at least 60) and only while the panel is shown and the network is up, one
+  request at a time, one login kept between refreshes; backoff up to 10 minutes after failures.
+- **Demo**: `SOHO_MONITOR_NAS_DEMO=<folder of recorded DSM answers>` plays them back instead of the NAS (no Keychain,
+  no network), e.g. the test fixtures, for screenshots.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `synology.host` | string, required | — | Host name or IP address of the NAS (HTTPS only) |
+| `synology.port` | integer | 5001 | DSM HTTPS port |
+| `synology.user` | string, required | — | Dedicated DSM account, without 2-factor authentication |
+| `synology.keychain_item` | string | `synology` | Keychain item (service `soho-monitor`) holding its password |
+| `synology.interval_seconds` | integer, 60–86400 | 60 | Seconds between two refreshes while the panel is shown |
+| `synology.sections` | list | all | `storage`, `system`, `update`, `docker`: parts of the card, each with its own calls |
+| `synology.expected_stopped` | list of names | none | Containers stopped on purpose: grey, not flagged |
+| `synology.update_interval_hours` | integer, 1–168 | 6 | Hours between two DSM update checks |
+| `synology.tls` | mapping | system trust | `pin_sha256: "<fingerprint>"` or `allow_self_signed: true` (see `config/example.yaml`) |
 
 ## Architecture
 

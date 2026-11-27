@@ -7,6 +7,13 @@ Notable changes, newest first. Entries accumulate under "Unreleased" until the f
 
 ### Added
 
+- NAS card (#23, #24, #25, #26, #27): volume usage and health, storage pool and disk health, CPU · RAM · disk
+  activity, model, DSM version, temperature and uptime, Docker containers with a status dot (problems first,
+  `expected_stopped`), DSM update badge; one polling cycle per `interval_seconds` while the panel is shown, one
+  login kept between cycles, a failing section shown as unavailable while the others render, an API refused or
+  missing not asked again in the session; new keys `synology.sections`, `synology.expected_stopped`,
+  `synology.update_interval_hours`; parsers tested against anonymised answers of a real DSM 7.1.1 NAS;
+  `SOHO_MONITOR_NAS_DEMO` plays recorded answers back for screenshots.
 - Panel Opacity (#86): a menu bar submenu (100% default, 85, 70, 55, 40, 30%) that fades the whole desktop panel,
   text included (window alpha, saved as `panel.opacity`, tolerant reading: clamped to 30...100 and snapped to a
   step); shown at 100% under Increase Contrast or Reduce Transparency, and the menu says so. Combines with Tile

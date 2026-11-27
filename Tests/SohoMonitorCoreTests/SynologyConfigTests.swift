@@ -133,6 +133,57 @@ import Testing
         let result = try parse("synology:\n  host: h.test\n  user: u\n  colour: blue\n  tls:\n    verify: no\n")
         #expect(result.warnings.map(\.keyPath) == ["synology.colour", "synology.tls.verify"])
     }
+
+    @Test func cardKeysDefaultToEverySectionAndASixHourUpdateCheck() throws {
+        let config = try #require(try parse("synology:\n  host: h.test\n  user: u\n").config.synology)
+        #expect(config.sections == Set(NASSectionKind.allCases))
+        #expect(config.expectedStopped.isEmpty)
+        #expect(config.updateIntervalHours == 6)
+    }
+
+    @Test func cardKeysAreRead() throws {
+        let result = try parse(
+            """
+            synology:
+              host: h.test
+              user: u
+              sections: [storage, docker]
+              expected_stopped: [backup-job, " tools "]
+              update_interval_hours: 24
+            """)
+        #expect(result.warnings.isEmpty)
+        let config = try #require(result.config.synology)
+        #expect(config.sections == [.storage, .docker])
+        #expect(config.expectedStopped == ["backup-job", "tools"])
+        #expect(config.updateIntervalHours == 24)
+    }
+
+    @Test func malformedCardKeysAreErrors() {
+        let found = issues(
+            """
+            synology:
+              host: h.test
+              user: u
+              sections: [storage, gpu]
+              expected_stopped: name
+              update_interval_hours: 0
+            """)
+        #expect(
+            found.map(\.keyPath) == [
+                "synology.sections[1]", "synology.expected_stopped", "synology.update_interval_hours",
+            ])
+        #expect(found[0].message.contains("storage, system, update, docker"))
+        #expect(found[2].message.contains("at least 1"))
+        #expect(
+            issues("synology:\n  host: h.test\n  user: u\n  sections: []\n").map(\.keyPath) == ["synology.sections"])
+    }
+
+    @Test func intervalBelowTheFloorIsRefused() {
+        #expect(
+            issues("synology:\n  host: h.test\n  user: u\n  interval_seconds: 10\n").map(\.keyPath) == [
+                "synology.interval_seconds"
+            ])
+    }
 }
 
 @Suite struct CertificateFingerprintTests {
