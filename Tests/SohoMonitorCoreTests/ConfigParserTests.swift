@@ -159,10 +159,13 @@ import Testing
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("config/example.yaml")
-        let result = try ConfigParser.parse(String(contentsOf: url, encoding: .utf8))
+        // The example's Claude profiles are placeholders: their directories are taken as existing.
+        let result = try ConfigParser.parse(
+            String(contentsOf: url, encoding: .utf8), home: "/Users/me", directoryExists: { _ in true })
         #expect(result.warnings.isEmpty)
         #expect(result.config.disk.categories.count >= 10)
         #expect(result.config.disk.categories.contains { $0.source == .iosRuntimes })
+        #expect(result.config.claude.accounts.map(\.label) == ["Work", "Personal"])
     }
 }
 

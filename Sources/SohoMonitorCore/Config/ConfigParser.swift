@@ -4,7 +4,11 @@ import Yams
 /// Reads and validates the YAML configuration. Every problem is reported at once, with its line, so that one edit
 /// can fix them all; unknown keys are warnings (a newer file still loads in an older app).
 public enum ConfigParser {
-    public static func parse(_ yaml: String) throws(ConfigError) -> ConfigLoadResult {
+    /// `home` expands `~`; `directoryExists` checks the Claude config directories (missing one: warning).
+    public static func parse(
+        _ yaml: String, home: String = NSHomeDirectory(),
+        directoryExists: @escaping (String) -> Bool = ConfigParser.isDirectory
+    ) throws(ConfigError) -> ConfigLoadResult {
         let root: Node?
         do {
             root = try Yams.compose(yaml: yaml)
@@ -13,10 +17,16 @@ public enum ConfigParser {
         } catch {
             throw ConfigError(issues: [ConfigIssue(line: 1, keyPath: "config", message: "YAML syntax: \(error)")])
         }
-        var reader = Reader()
+        var reader = Reader(home: home, directoryExists: directoryExists)
         let config = reader.read(root)
         if !reader.errors.isEmpty { throw ConfigError(issues: inFileOrder(reader.errors)) }
         return ConfigLoadResult(config: config, warnings: inFileOrder(reader.warnings))
+    }
+
+    /// True for an existing directory (through symbolic links).
+    public static func isDirectory(_ path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 
     /// Sorted by line (stable: same-line issues keep the order they were found in).
@@ -39,8 +49,11 @@ public enum ConfigParser {
     }
 }
 
-/// Walks the node tree; collects errors and warnings in file order.
-private struct Reader {
+/// Walks the node tree; collects errors and warnings in file order. Module sections may live in their own file as
+/// extensions (`ClaudeConfig.swift`).
+struct Reader {
+    let home: String
+    let directoryExists: (String) -> Bool
     var errors: [ConfigIssue] = []
     var warnings: [ConfigIssue] = []
 
@@ -75,12 +88,13 @@ private struct Reader {
             error(root, "config", "expected a mapping at the top level")
             return .empty
         }
-        let top = entries(mapping, at: "", known: ["disk"])
+        let top = entries(mapping, at: "", known: ["disk", "claude"])
+        let claude = top["claude"].map { readClaude($0) } ?? .disabled
         guard let disk = top["disk"] else {
             error(root, "disk", "required section is missing")
             return .empty
         }
-        return AppConfig(disk: readDisk(disk))
+        return AppConfig(disk: readDisk(disk), claude: claude)
     }
 
     mutating func readDisk(_ node: Node) -> DiskConfig {
