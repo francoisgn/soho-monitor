@@ -1,9 +1,9 @@
 import SohoMonitorCore
 import SwiftUI
 
-/// The NAS card once a password is saved (operator layout, #27): header with the main volume's used share, then
-/// storage (one bar per volume, volume health, pool and disk health dot), CPU · RAM · disk activity on one line,
-/// containers with a status dot each, and pills for the DSM update and the sections that could not be read.
+/// The NAS card once a password is saved (operator layout, #27): header with the main volume's used share and free
+/// space, then storage (one bar per volume, volume health, pool and disk health dot), CPU · RAM · disk activity on
+/// one line, containers with a status dot each, and pills for the DSM update and the sections that could not be read.
 struct NASCard: View {
     var config: SynologyConfig
     var state: RemoteState<NASSnapshot>
@@ -25,7 +25,9 @@ struct NASCard: View {
                 NASDetails(snapshot: snapshot, host: config.host).opacity(0.5)
                 NASStatusLine(
                     text: "Data from \(RelativeAge.string(from: since, now: now)): \(reason)",
-                    level: .warning)
+                    level: .warning
+                )
+                .padding(.top, NASDetails.endsWithPills(snapshot) ? PillRow.textClearance : 0)
                 // A changed pin with data still shown: the fingerprint to check, at once.
                 if let presented = tlsFailure?.presented { FingerprintRow(fingerprint: presented) }
             case .loading:
@@ -54,8 +56,15 @@ struct NASCard: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(CardColor.warning)
                     .lineLimit(2)
+                    .padding(.top, pillsLast ? PillRow.textClearance : 0)
             }
         }
+    }
+
+    /// The card's last row so far is a pill row: what follows keeps clear of the glass.
+    private var pillsLast: Bool {
+        if case .ok(let snapshot, _) = state { return NASDetails.endsWithPills(snapshot) }
+        return false
     }
 
     private func header(figure: String) -> some View {
@@ -82,8 +91,14 @@ private struct NASDetails: View {
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("NAS \(host)")
-        .accessibilityValue(main.map { "\(PercentFormat.whole($0.usedFraction)) used, \($0.statusText)" } ?? "")
-        identity
+        .accessibilityValue(main.map { Self.spoken($0) } ?? "")
+        // The free space right under the large figure, at the end of the identity line.
+        HStack(spacing: 8) {
+            identity
+            Spacer(minLength: 0)
+            // Hidden from VoiceOver: the header element above already reads it.
+            if let main, let free = Self.freeText(main) { FigureCaption(text: free).accessibilityHidden(true) }
+        }
         if let storage {
             ForEach(Array(storage.volumes.enumerated()), id: \.offset) { _, volume in
                 VolumeRow(volume: volume, showsName: storage.volumes.count > 1)
@@ -95,10 +110,15 @@ private struct NASDetails: View {
             ContainerGrid(list: list)
         }
         let pills = Self.pills(snapshot)
-        if !pills.isEmpty { PillRow(pills: pills) }
+        // Always under a row of text (containers, load or hardware line): kept clear of the glass edge.
+        if !pills.isEmpty { PillRow(pills: pills).padding(.top, PillRow.textClearance) }
     }
 
-    /// "DS416play · DSM 7.1.1 · 54 °C · up 77 d 8 h": model, version, temperature (orange when DSM warns), uptime.
+    /// The details end with a pill row (DSM update or an unreadable section).
+    static func endsWithPills(_ snapshot: NASSnapshot) -> Bool { !pills(snapshot).isEmpty }
+
+    /// "DS416play · DSM 7.1.1 · 54 °C · up 77 d 8 h": model, version, system temperature (orange when DSM warns),
+    /// uptime. The card's only temperature (the disks' are not shown).
     @ViewBuilder private var identity: some View {
         let system = snapshot.system.value
         let parts = [system?.model, system?.dsmVersion.map(NASFormat.shortVersion)].compactMap { $0 }
@@ -115,6 +135,17 @@ private struct NASDetails: View {
             .lineLimit(1)
             .truncationMode(.middle)
             .help(system?.dsmVersion ?? host)
+    }
+
+    /// "792.6 GB free" for a volume whose sizes DSM gave.
+    static func freeText(_ volume: NASVolume) -> String? {
+        volume.free.map { "\(ByteFormat.short(Int64(clamping: $0))) free" }
+    }
+
+    /// "90 % used, 792.6 GB free, almost full" for VoiceOver.
+    private static func spoken(_ volume: NASVolume) -> String {
+        [PercentFormat.whole(volume.usedFraction) + " used", freeText(volume), volume.statusText]
+            .compactMap { $0 }.joined(separator: ", ")
     }
 
     /// The DSM update badge, then one red pill per section that could not be read.
@@ -160,7 +191,7 @@ private struct VolumeRow: View {
     }
 }
 
-/// Volume health, then the worst pool or disk as a dot (named when it is not healthy), then the hottest disk.
+/// Volume health, then the worst pool or disk as a dot (named when it is not healthy).
 private struct HardwareLine: View {
     var storage: NASStorage
 
@@ -175,11 +206,6 @@ private struct HardwareLine: View {
                 text: hardware.subject.map { "\($0) \(hardware.health.label.lowercasedUnlessName)" }
                     ?? "\(Self.count(storage)) healthy")
             Spacer(minLength: 0)
-            if let temperature = storage.maxDiskTemperature {
-                Text("\(temperature) °C").font(.system(size: 11, weight: .medium, design: .rounded))
-                    .monospacedDigit().foregroundStyle(.secondary)
-                    .help("Hottest disk")
-            }
         }
     }
 

@@ -177,15 +177,15 @@ The NAS card, shown when the configuration has a `synology:` section. Until a pa
 **Set Up…** (credential window: type the password, test the connection, save it in the Keychain) and **Test** (the
 saved password); then it shows the NAS's data:
 
-<p align="center"><img src="docs/images/nas-card.png" alt="NAS card: 90 % used, DS416play, DSM 7.1.1, 54 °C, up 77 days; volume bar 6.88 TB of 7.67 TB; volume almost full and pool attention dots, hottest disk 41 °C; CPU 79 %, RAM 31 %, disk 59 %; containers 6/6 running; DSM update badge" width="420"></p>
+<p align="center"><img src="docs/images/nas-card.png" alt="NAS card: 90 % used, DS416play, DSM 7.1.1, 54 °C, up 77 days, 792.6 GB free; volume bar 6.88 TB of 7.67 TB; volume almost full and pool attention dots; CPU 79 %, RAM 31 %, disk 59 %; containers 6/6 running; DSM update badge" width="420"></p>
 <sub>Rendered from the anonymised test fixtures (`Tests/SohoMonitorCoreTests/Fixtures/Synology`), not a live NAS.</sub>
 
-- **Storage**: the first volume's used share as the large figure; one bar per volume, coloured by DSM's own health
-  (indigo when normal, orange attention or an unknown status, red degraded or crashed); a dot for the volume's health
-  ("almost full" when DSM says so) and one for the worst storage pool or disk, named when it is not healthy; the
-  hottest disk.
-- **System**: model, DSM version, temperature (orange when DSM raises its temperature warning) and uptime under the
-  title; CPU (user + system + other load), RAM (`real_usage`) and disk activity (how busy the disks were, all drives
+- **Storage**: the first volume's used share as the large figure, its free space just under it; one bar per volume,
+  coloured by DSM's own health (indigo when normal, orange attention or an unknown status, red degraded or crashed);
+  a dot for the volume's health ("almost full" when DSM says so) and one for the worst storage pool or disk, named
+  when it is not healthy.
+- **System**: model, DSM version, system temperature (the card's only one; orange when DSM raises its temperature
+  warning) and uptime under the title; CPU (user + system + other load), RAM (`real_usage`) and disk activity (how busy the disks were, all drives
   together: `disk.total.utilization`) on one line, orange from 70 % (RAM 85 %), red from 90 % (RAM 95 %), as the Mac's cards.
 - **Containers**: running / total, then one dot per container, problems first: red unhealthy or exited with an
   error, orange stopped, restarting or paused, grey stopped on purpose (`expected_stopped`), green running. Only

@@ -41,6 +41,20 @@ enum NASFixtures {
         // The recorded NAS is almost full: DSM itself flags the volume and its pool.
         #expect(volume.health == .attention)
         #expect(volume.detail == "fs_almost_full")
+        #expect(volume.free == 7_670_124_396_544 - 6_877_561_569_280)
+    }
+
+    @Test func freeSpaceNeedsBothSizesAndNeverGoesNegative() {
+        func volume(total: UInt64?, used: UInt64?) -> NASVolume {
+            NASVolume(name: "v", total: total, used: used, health: .normal, detail: nil)
+        }
+        #expect(volume(total: 100, used: 30).free == 70)
+        #expect(volume(total: 100, used: nil).free == nil)
+        #expect(volume(total: nil, used: 30).free == nil)
+        // A zero-sized volume has no used share either ("—"): no "0 MB free" next to it.
+        #expect(volume(total: 0, used: 0).free == nil)
+        // A used size above the total (DSM counts reserved space differently): nothing free, not a wrap-around.
+        #expect(volume(total: 100, used: 130).free == 0)
     }
 
     @Test func poolsAndDisksKeepTheirStatus() throws {
@@ -50,7 +64,6 @@ enum NASFixtures {
         #expect(storage.disks.map(\.name) == ["Drive 1", "Drive 2", "Drive 3", "Drive 4"])
         #expect(storage.disks.allSatisfy { $0.health == .normal })
         #expect(storage.disks.map(\.temperature) == [38, 41, 40, 41])
-        #expect(storage.maxDiskTemperature == 41)
     }
 
     @Test func worstHealthNamesThePoolOrDisk() throws {
@@ -108,7 +121,7 @@ enum NASFixtures {
         #expect(storage.pools.isEmpty)
         #expect(storage.disks.first?.name == "sda")
         #expect(storage.disks.first?.temperature == nil)
-        #expect(storage.maxDiskTemperature == nil)
+        #expect(storage.volumes.first?.free == nil)
     }
 
     @Test func sizesAsNumbersAreAcceptedToo() throws {

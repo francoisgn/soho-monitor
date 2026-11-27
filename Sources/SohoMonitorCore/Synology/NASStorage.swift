@@ -89,6 +89,13 @@ public struct NASVolume: Sendable, Equatable {
         guard let total, let used, total > 0 else { return nil }
         return Double(used) / Double(total)
     }
+
+    /// Bytes left: total − used, never below zero; nil when DSM left out either size or the total is zero (as
+    /// `usedFraction`).
+    public var free: UInt64? {
+        guard let total, let used, total > 0 else { return nil }
+        return total > used ? total - used : 0
+    }
 }
 
 public struct NASPool: Sendable, Equatable {
@@ -138,8 +145,6 @@ public struct NASStorage: Sendable, Equatable {
         }
         return worst
     }
-
-    public var maxDiskTemperature: Int? { disks.compactMap(\.temperature).max() }
 
     /// From the whole response body (the DSM envelope).
     public static func decode(_ body: Data) throws(DSMError) -> NASStorage {

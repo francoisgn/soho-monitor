@@ -130,6 +130,20 @@ struct MetricHeader: View {
     }
 }
 
+/// The small figure under a card's large one ("792.6 GB free"): never truncated, the subtitle gives way.
+struct FigureCaption: View {
+    var text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize()
+    }
+}
+
 /// A small glass capsule with a short fact ("10 cores", "Swap 1.2 GB"); opaque under Reduce Transparency.
 struct InfoPill: View {
     var text: String
@@ -289,6 +303,11 @@ private struct PointerTracker: NSViewRepresentable {
 /// Pills that wrap onto as many lines as needed.
 struct PillRow: View {
     var pills: [InfoPill]
+
+    /// Extra gap, on top of the card's row spacing, between a pill row and a row of text next to it: the glass edge
+    /// refracts what lies just outside it, so text 7 pt away showed as ghost text inside the pill (#90; renders from
+    /// the NAS fixtures: ghost up to +3 pt, faint at +5 pt, none from +8 pt).
+    static let textClearance: CGFloat = 8
 
     var body: some View {
         FlowLayout(spacing: 5, lineSpacing: 5) {
