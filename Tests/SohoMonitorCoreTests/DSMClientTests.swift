@@ -51,6 +51,23 @@ final class StubTransport: HTTPTransport {
     }
 }
 
+/// Behaves like the DSM 7 NAS measured on 2026-11-27 (curl, same session, `SYNO.Core.System` info): a session call
+/// whose token is a `SynoToken` field of the POST body gets error 119; with the `X-SYNO-TOKEN` header it succeeds.
+/// Discovery and login need no token.
+final class CSRFCheckingTransport: HTTPTransport {
+    let stub = StubTransport()
+    var trustState: TLSTrustState? { stub.trustState }
+
+    func send(_ request: HTTPRequest) async throws(TransportError) -> HTTPResponse {
+        let response = try await stub.send(request)
+        let needsToken = request["_sid"] != nil
+        guard needsToken, request["SynoToken"] != nil || request.header("X-SYNO-TOKEN") != "TOKEN0" else {
+            return response
+        }
+        return HTTPResponse(status: 200, body: Data(DSMFixtures.error(119).utf8))
+    }
+}
+
 /// Recorded on a DSM 7.1 NAS (`SYNO.API.Info` needs no login and carries no identifying data).
 enum DSMFixtures {
     static let info = """
@@ -73,7 +90,7 @@ enum DSMFixtures {
 @Suite(.timeLimit(.minutes(1))) struct DSMClientTests {
     private let base = URL(string: "https://nas.example.test:5001")!
 
-    private func client(_ transport: StubTransport, password: Result<String, DSMError> = .success("pw&=+ %"))
+    private func client(_ transport: any HTTPTransport, password: Result<String, DSMError> = .success("pw&=+ %"))
         -> DSMClient
     {
         DSMClient(baseURL: base, account: "<user>", password: { password }, transport: transport)
@@ -119,13 +136,42 @@ enum DSMFixtures {
         let call = try #require(transport.requests("SYNO.Core.System info").first)
         #expect(call.timeout == nil)
         #expect(call["_sid"] == "SID-1")
-        #expect(call["SynoToken"] == "TOKEN0")
+        // The token goes in the header DSM reads, not in the body (where DSM 7 answers 119).
+        #expect(call.header("X-SYNO-TOKEN") == "TOKEN0")
+        #expect(call["SynoToken"] == nil)
         // Credentials and the sid travel in the POST body, never in the URL.
         #expect(transport.requests.allSatisfy { $0.url.query == nil && $0.method == "POST" })
         // One discovery and one login for the session, whatever the number of calls.
         _ = try await client.call("SYNO.Core.System", version: 1, method: "info", as: System.self)
         #expect(transport.requests("SYNO.API.Auth login").count == 1)
         #expect(transport.requests("SYNO.API.Info query").count == 1)
+    }
+
+    @Test func aSessionCallSucceedsAgainstANASThatReadsTheTokenOnlyFromTheHeader() async throws {
+        let transport = CSRFCheckingTransport()
+        transport.stub.on("SYNO.API.Info query", json: DSMFixtures.info)
+        transport.stub.on("SYNO.API.Auth login", json: DSMFixtures.login(sid: "SID-1"))
+        transport.stub.on("SYNO.Core.System info", json: DSMFixtures.system)
+        let system = try await client(transport).call("SYNO.Core.System", version: 1, method: "info", as: System.self)
+        #expect(system == System(model: "DS-TEST", temperature: 41))
+        #expect(transport.stub.requests("SYNO.API.Auth login").count == 1)
+        #expect(transport.stub.requests("SYNO.Core.System info").count == 1)
+    }
+
+    @Test func withoutATokenFromTheLoginNoTokenIsSent() async throws {
+        let transport = StubTransport()
+        transport.on("SYNO.API.Info query", json: DSMFixtures.info)
+        transport.on("SYNO.API.Auth login", json: #"{"data":{"sid":"SID-1"},"success":true}"#)
+        transport.on("SYNO.Core.System info", json: DSMFixtures.system)
+        transport.on("SYNO.API.Auth logout", json: DSMFixtures.ok)
+        let client = client(transport)
+        _ = try await client.call("SYNO.Core.System", version: 1, method: "info")
+        await client.logout()
+        for request in transport.requests {
+            #expect(request.headers.isEmpty, "\(request)")
+            #expect(request["SynoToken"] == nil, "\(request)")
+        }
+        #expect(transport.requests("SYNO.Core.System info").first?["_sid"] == "SID-1")
     }
 
     @Test(arguments: [105, 106, 107, 119])
@@ -267,6 +313,10 @@ enum DSMFixtures {
         await client.logout()
         await client.logout()
         #expect(transport.requests("SYNO.API.Auth logout").map { $0["_sid"] } == ["SID-1"])
+        let logout = try #require(transport.requests("SYNO.API.Auth logout").first)
+        #expect(logout.header("X-SYNO-TOKEN") == "TOKEN0")
+        #expect(logout["SynoToken"] == nil)
+        #expect(logout.url.query == nil)
     }
 
     @Test func concurrentCallsShareOneLogin() async throws {
@@ -291,6 +341,17 @@ enum DSMFixtures {
         #expect(!String(describing: request).contains("hunter2"))
         #expect(!String(describing: request).contains("SID-1"))
         #expect(!String(reflecting: request).contains("hunter2"))
+        var withHeader = request
+        withHeader.headers = [("X-SYNO-TOKEN", "TOKEN-SECRET")]
+        #expect(!String(describing: withHeader).contains("TOKEN-SECRET"))
+        #expect(!String(reflecting: withHeader).contains("TOKEN-SECRET"))
+    }
+
+    @Test func headerLookupIgnoresCaseAndSurroundingSpaces() {
+        var request = HTTPRequest(url: base, fields: [])
+        request.headers = [(" x-syno-token ", "T")]
+        #expect(request.header("X-SYNO-TOKEN") == "T")
+        #expect(request.header("Cookie") == nil)
     }
 
     @Test func formEncodingEscapesEverythingButUnreservedCharacters() {

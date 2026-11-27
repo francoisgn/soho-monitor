@@ -44,8 +44,13 @@ public enum DSMParameter: Sendable, Equatable {
 
 /// A read-only client of the DSM Web API, after Synology's "DSM Login Web API Guide" (2023-04-19): discovery with
 /// `SYNO.API.Info` (always at `/webapi/entry.cgi`, p. 5), login with `SYNO.API.Auth` (`format=sid`, p. 15-16), every
-/// call with `_sid` and, when the login returned one, `SynoToken` (p. 4, 17). Everything is a form POST: the
+/// call with `_sid` and, when the login returned one, the CSRF token (p. 4, 11, 17). Everything is a form POST: the
 /// password and the session id travel in the encrypted body, never in a URL (which servers and proxies log).
+///
+/// The token goes in the `X-SYNO-TOKEN` header, not in the body. The guide calls it a "request parameter" and shows
+/// it only in GET query strings (p. 11, 17); a DSM 7 NAS measured on 2026-11-27 (curl, same session,
+/// `SYNO.Core.System` info) answered error 119 to `SynoToken` in a POST body, and success to the header (or to a query
+/// string, which would put the secrets in the URL).
 ///
 /// The session lives in memory only. A session error (105, 106, 107, 119) gets one fresh login and one retry; an
 /// auth error never retries. Concurrent calls share one login.
@@ -118,10 +123,9 @@ public actor DSMClient {
         guard let ended = session else { return }
         session = nil
         guard let auth = try? await authAPI() else { return }
-        let request = HTTPRequest(
+        let request = sessionRequest(
             url: url(path: auth.path),
-            fields: [("api", "SYNO.API.Auth"), ("version", String(auth.version)), ("method", "logout")]
-                + sessionFields(ended))
+            fields: [("api", "SYNO.API.Auth"), ("version", String(auth.version)), ("method", "logout")], ended)
         _ = try? await send(request, api: "SYNO.API.Auth")
     }
 
@@ -221,11 +225,14 @@ public actor DSMClient {
         return (auth.path, auth.maxVersion)
     }
 
-    private func sessionFields(_ session: Session) -> [(String, String)] {
-        var fields = [("_sid", session.sid)]
-        if let token = session.synoToken { fields.append(("SynoToken", token)) }
-        return fields
+    /// `_sid` in the body, the token in its header: DSM 7 answers 119 to a body `SynoToken` (see the `DSMClient` doc).
+    private func sessionRequest(url: URL, fields: [(String, String)], _ session: Session) -> HTTPRequest {
+        var request = HTTPRequest(url: url, fields: fields + [("_sid", session.sid)])
+        if let token = session.synoToken { request.headers = [(name: Self.tokenHeader, value: token)] }
+        return request
     }
+
+    static let tokenHeader = "X-SYNO-TOKEN"
 
     // MARK: Requests
 
@@ -243,10 +250,9 @@ public actor DSMClient {
     ) async throws(DSMError) -> Data {
         let json = description.requestFormat?.uppercased() == "JSON"
         let encoded = parameters.sorted { $0.key < $1.key }.map { ($0.key, $0.value.encoded(json: json)) }
-        let request = HTTPRequest(
+        let request = sessionRequest(
             url: url(path: description.path),
-            fields: [("api", api), ("version", String(version)), ("method", method)] + encoded
-                + sessionFields(session))
+            fields: [("api", api), ("version", String(version)), ("method", method)] + encoded, session)
         return try await send(request, api: api)
     }
 

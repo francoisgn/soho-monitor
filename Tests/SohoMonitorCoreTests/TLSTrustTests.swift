@@ -177,6 +177,17 @@ import Testing
         #expect(URLSessionTransport.urlRequest(for: request, defaultTimeout: 10).timeoutInterval == 30)
     }
 
+    @Test func theRequestHeadersReachTheURLRequestBesideTheFormBody() {
+        var request = HTTPRequest(
+            url: URL(string: "https://nas.example.test:5001/webapi/entry.cgi")!, fields: [("_sid", "SID-1")])
+        request.headers = [("X-SYNO-TOKEN", "TOKEN0")]
+        let urlRequest = URLSessionTransport.urlRequest(for: request, defaultTimeout: 10)
+        #expect(urlRequest.value(forHTTPHeaderField: "X-SYNO-TOKEN") == "TOKEN0")
+        #expect(urlRequest.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
+        #expect(urlRequest.httpBody == Data("_sid=SID-1".utf8))
+        #expect(urlRequest.url?.query == nil)
+    }
+
     @Test func theWholeExchangeMayLastAsLongAsTheLongestRequest() {
         #expect(URLSessionTransport.resourceTimeout(defaultTimeout: 10) >= DSMClient.loginTimeout)
     }
