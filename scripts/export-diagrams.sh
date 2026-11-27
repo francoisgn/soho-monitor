@@ -7,6 +7,7 @@
 #   no scene: every docs/diagrams/*.excalidraw; --png also renders each SVG to <dir>/<name>.png (2x) to look at it.
 # Environment: CHROME (default: the macOS Google Chrome app), EXPORT_TOOLING_DIR (default:
 #   ~/.cache/soho-monitor/excalidraw-export), DEBUG_EXPORT=1 prints the page's console.
+# After editing a scene, run this script and commit the .excalidraw and its .svg together (nothing checks they match).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,9 +19,18 @@ png=()
 scenes=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    --png) [ $# -ge 2 ] || ko "usage: $0 [--png <dir>] [scene.excalidraw...]"; mkdir -p "$2"; png=(--png "$(cd "$2" && pwd)"); shift 2 ;;
+    --png)
+      [ $# -ge 2 ] || ko "usage: $0 [--png <dir>] [scene.excalidraw...]"
+      mkdir -p "$2" || ko "cannot create $2"
+      png=(--png "$(cd "$2" && pwd)")
+      shift 2
+      ;;
     -*) ko "usage: $0 [--png <dir>] [scene.excalidraw...]" ;;
-    *) scenes+=("$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"); shift ;;
+    *)
+      [ -f "$1" ] || ko "scene not found: $1"
+      scenes+=("$(cd "$(dirname "$1")" && pwd)/$(basename "$1")")
+      shift
+      ;;
   esac
 done
 if [ ${#scenes[@]} -eq 0 ]; then
@@ -33,7 +43,8 @@ command -v npm >/dev/null || ko "npm not found: install Node.js 18 or later"
 
 tooling="${EXPORT_TOOLING_DIR:-$HOME/.cache/soho-monitor/excalidraw-export}"
 mkdir -p "$tooling"
-# Exact versions, each published weeks before it was adopted; bump deliberately and re-export to compare.
+# Exact versions of the direct dependencies, each published weeks before it was adopted (their own dependencies are
+# not locked: the export of an unchanged scene was byte-identical across clean installs; compare after a bump).
 cat >"$tooling/package.json" <<'JSON'
 {
   "name": "soho-monitor-excalidraw-export",
