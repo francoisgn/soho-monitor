@@ -7,6 +7,12 @@ Notable changes, newest first. Entries accumulate under "Unreleased" until the f
 
 ### Added
 
+- System module, CPU and memory (#3, #4, #5, #6): shared sampling engine (demand tokens, one timer only while a card
+  is on screen, 1 s minimum interval, no catch-up burst after sleep, failing metric shown as unavailable); card design
+  system (glass card with an opaque fallback under Reduce Transparency, large rounded figure, pills, thin bar,
+  sparkline, orange / red levels); CPU card (usage from Mach tick deltas, chip name, core counts and P/E split) and
+  memory card (used / total, app / wired / compressed / cached breakdown on hover, pressure from a dispatch source,
+  swap) above the disk card on the desktop panel.
 - Disk module (#1): YAML configuration (`~/.config/soho-monitor/config.yaml`, example in `config/example.yaml`) with
   validation, line-located errors, live reload and last valid configuration kept; scanner (`du -k -d 1` at background
   QoS, subtraction of earlier categories, top 3 folders per group, partial flag, iOS runtimes from `simctl`, APFS

@@ -15,7 +15,7 @@
 > menu bar extra and a movable Liquid Glass desktop panel.
 
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
-widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: the **disk module** works (v0.1);
+widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: the **disk module** works (v0.1), the **CPU and memory cards** are in;
 the other modules are planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
 
 ## Features
@@ -23,7 +23,7 @@ the other modules are planned, see the [issues](https://github.com/francoisgn/so
 | Module | What it shows | Status |
 |---|---|---|
 | Disk | Usage of the startup volume by configurable groups and categories (YAML), segmented bar, legend, top 3 folders per group, free space thresholds | 🔵 migrating |
-| System | CPU, GPU, memory, network cards with a large figure, a thin bar, a history sparkline, busiest processes; optional menu bar indicators | ⚪ planned |
+| System | CPU and memory cards (large figure, thin bar, 2-minute sparkline, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
 | Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account | ⚪ planned |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
 | Claude | Usage of the operator's Claude plans (session and weekly limits, reset times) | ⚪ planned |
@@ -85,6 +85,23 @@ are warnings.
 
 A category has either `paths` or `source`. Put the most specific paths first (DerivedData before
 `~/Library/Developer`). Quote a path that starts with a YAML indicator (`*`, `&`, `!`, `[`, `{`).
+
+## System module
+
+Two glass cards above the disk card on the desktop panel:
+
+- **CPU**: total usage of all cores (user + system + nice ticks over all ticks between two samples, from
+  `host_processor_info`), chip name (`machdep.cpu.brand_string`), core count and the split per performance level
+  (`hw.perflevelN`, e.g. "4P + 6E"); hover the figure for user / system. The first second shows "Sampling…": a rate
+  needs two samples.
+- **Memory**: used share and "used of total" (used = app + wired + compressed, the Activity Monitor-like split of
+  `host_statistics64`; cached files and purgeable memory are not counted as used), breakdown on hover, memory
+  pressure pill (event driven: `DispatchSource` memory-pressure source, seeded by
+  `kern.memorystatus_vm_pressure_level`), swap used (`vm.swapusage`). Sizes in binary units (16 GB = 16 GiB). The
+  bar turns orange / red with the pressure level, or above 85 % / 95 % used when the pressure is unknown.
+- **Sampling**: once per second, and only while the panel is on screen: hidden, fully covered or on a locked display,
+  nothing is sampled. After the Mac wakes, the first CPU sample is dropped rather than averaged over the sleep. A
+  metric that cannot be read shows "Unavailable" (reason on hover), never a fake 0 %.
 
 ## Architecture
 
