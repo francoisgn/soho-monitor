@@ -51,6 +51,12 @@ public enum TransportError: Error, Sendable, Equatable {
     /// The certificate was refused by the host's `TLSPolicy`: the request was never sent.
     case tls(TLSFailure)
     case failed(String)
+
+    /// The reason of `unreachable` when macOS Local Network privacy denies the app (TN3179,
+    /// https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).
+    public static let localNetworkDenied =
+        "blocked by macOS Local Network privacy: allow SohoMonitor in System Settings › Privacy & Security › Local "
+        + "Network"
 }
 
 /// Sends requests to one host. A protocol so that clients are tested with a stub.
@@ -66,10 +72,12 @@ public final class URLSessionTransport: HTTPTransport {
     public let trust: HostTrustDelegate
     private let session: URLSession
     private let timeout: TimeInterval
+    private let host: String
 
     public init(host: String, port: Int, policy: TLSPolicy, timeout: TimeInterval = 10) {
         trust = HostTrustDelegate(host: host, port: port, policy: policy)
         self.timeout = timeout
+        self.host = host
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
@@ -103,12 +111,22 @@ public final class URLSessionTransport: HTTPTransport {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             return HTTPResponse(status: status, body: data)
         } catch {
-            throw Self.map(error, tlsFailure: trust.lastFailure)
+            throw Self.map(error, host: host, tlsFailure: trust.lastFailure)
         }
     }
 
+    /// True for a dotted-quad IPv4 or an IPv6 address (brackets and zone allowed), never for a name.
+    static func isIPLiteral(_ host: String) -> Bool {
+        var literal = Substring(host)
+        if literal.hasPrefix("["), literal.hasSuffix("]") { literal = literal.dropFirst().dropLast() }
+        if let zone = literal.firstIndex(of: "%") { literal = literal[..<zone] }
+        var v4 = in_addr()
+        var v6 = in6_addr()
+        return String(literal).withCString { inet_pton(AF_INET, $0, &v4) == 1 || inet_pton(AF_INET6, $0, &v6) == 1 }
+    }
+
     /// A refusal by the policy surfaces as a cancelled or certificate error: report the policy's reason instead.
-    static func map(_ error: any Error, tlsFailure: TLSFailure?) -> TransportError {
+    static func map(_ error: any Error, host: String, tlsFailure: TLSFailure?) -> TransportError {
         guard let error = error as? URLError else { return .failed(String(describing: type(of: error))) }
         let tlsCodes: Set<URLError.Code> = [
             .cancelled, .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
@@ -117,7 +135,9 @@ public final class URLSessionTransport: HTTPTransport {
         if let tlsFailure, tlsCodes.contains(error.code) { return .tls(tlsFailure) }
         switch error.code {
         case .timedOut: return .unreachable("timed out")
-        case .cannotFindHost, .dnsLookupFailed: return .unreachable("host not found")
+        case .cannotFindHost, .dnsLookupFailed:
+            // An IP literal needs no lookup: macOS reports Local Network privacy denial this way (no DNS record).
+            return .unreachable(isIPLiteral(host) ? TransportError.localNetworkDenied : "host not found")
         case .cannotConnectToHost: return .unreachable("connection refused")
         case .networkConnectionLost: return .unreachable("connection lost")
         case .notConnectedToInternet: return .unreachable("no network")
