@@ -151,7 +151,8 @@ synology:
   # Name of the Keychain item that holds its password: service "soho-monitor", account = this name (default
   # "synology"). Saved by the app, or from a shell (the command asks for the password; nothing is echoed):
   #   security add-generic-password -s soho-monitor -a synology -T "$HOME/Applications/SohoMonitor.app" -w
-  # (-T lets the app read it without a prompt; without it macOS asks once: choose Always Allow.)
+  # (-T lets the app read it without a prompt; without it macOS asks once: choose Always Allow. "Test" on the NAS
+  # card, or Test Saved Password in the credential window, reads it and logs in, which brings that prompt.)
   keychain_item: synology
   # Seconds between two refreshes of the NAS data cards (storage, system, Docker: coming next), at least 60 (polling
   # floor for a small NAS). After failures the wait doubles up to 10 minutes; a refused login stops polling until the

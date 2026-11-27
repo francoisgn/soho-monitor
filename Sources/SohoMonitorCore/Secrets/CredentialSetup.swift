@@ -36,4 +36,22 @@ public enum CredentialSetup {
             }
         }
     }
+
+    /// `Test Saved Password`: reads the saved secret afresh from the store (the first read of an item another app
+    /// created brings the macOS access prompt), then runs the same `test` as a typed password. No item is
+    /// `.needsSetup` and a Keychain error is `.keychain`: `test` is not run, nothing is sent. Runs off the main actor.
+    public static func testSaved(
+        item: String, secrets: SecretCache,
+        test: @Sendable (String) async -> Result<TLSTrustState, DSMError>
+    ) async -> Result<TLSTrustState, DSMError> {
+        secrets.forget(item)
+        let saved: String?
+        do {
+            saved = try secrets.secret(for: item)
+        } catch {
+            return .failure(.keychain(error))
+        }
+        guard let saved else { return .failure(.needsSetup) }
+        return await test(saved)
+    }
 }

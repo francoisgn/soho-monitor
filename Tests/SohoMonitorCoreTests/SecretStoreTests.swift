@@ -101,6 +101,79 @@ import Testing
         #expect(outcome == .saveFailed(.accessDenied))
     }
 
+    @Test func testingTheSavedPasswordReadsTheKeychainAndRunsTheSameTest() async throws {
+        let store = InMemorySecretStore()
+        try store.save("saved", for: "synology")
+        let tested = TestedPasswords()
+        let result = await CredentialSetup.testSaved(
+            item: "synology", secrets: SecretCache(store: store),
+            test: { password in
+                await tested.append(password)
+                return .success(.pinnedExpired)
+            })
+        #expect(result == .success(.pinnedExpired))
+        #expect(await tested.values == ["saved"])
+        #expect(store.reads == 1)
+    }
+
+    @Test func testingTheSavedPasswordRereadsTheKeychainInsteadOfTheSessionCopy() async throws {
+        let store = InMemorySecretStore()
+        try store.save("old", for: "synology")
+        let cache = SecretCache(store: store)
+        #expect(try cache.secret(for: "synology") == "old")
+        // Changed outside the app (Keychain Access, `security`): the test must use what the Keychain holds now.
+        try store.save("new", for: "synology")
+        let tested = TestedPasswords()
+        _ = await CredentialSetup.testSaved(
+            item: "synology", secrets: cache,
+            test: { password in
+                await tested.append(password)
+                return .success(.trusted)
+            })
+        #expect(await tested.values == ["new"])
+        #expect(store.reads == 2)
+        #expect(try cache.secret(for: "synology") == "new")
+        #expect(store.reads == 2)
+    }
+
+    @Test func aSavedPasswordThatVanishedNeedsSetupAndSendsNothing() async {
+        let tested = TestedPasswords()
+        let result = await CredentialSetup.testSaved(
+            item: "synology", secrets: SecretCache(store: InMemorySecretStore()),
+            test: { password in
+                await tested.append(password)
+                return .success(.trusted)
+            })
+        #expect(result == .failure(.needsSetup))
+        #expect(await tested.values.isEmpty)
+    }
+
+    @Test(arguments: [SecretStoreError.accessDenied, .locked, .unreadable])
+    func aKeychainErrorOnTheSavedPasswordIsReportedOnce(error: SecretStoreError) async throws {
+        let store = InMemorySecretStore()
+        try store.save("saved", for: "synology")
+        store.failure = error
+        let tested = TestedPasswords()
+        let result = await CredentialSetup.testSaved(
+            item: "synology", secrets: SecretCache(store: store),
+            test: { password in
+                await tested.append(password)
+                return .success(.trusted)
+            })
+        #expect(result == .failure(.keychain(error)))
+        #expect(await tested.values.isEmpty)
+    }
+
+    @Test func aFailedTestOfTheSavedPasswordKeepsItsDSMError() async throws {
+        let store = InMemorySecretStore()
+        try store.save("saved", for: "synology")
+        let result = await CredentialSetup.testSaved(
+            item: "synology", secrets: SecretCache(store: store),
+            test: { _ in .failure(.unreachable("timed out")) })
+        #expect(result == .failure(.unreachable("timed out")))
+        #expect(store.count == 1)
+    }
+
     private actor TestedPasswords {
         var values: [String] = []
         func append(_ value: String) { values.append(value) }

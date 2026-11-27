@@ -27,7 +27,7 @@ planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
 |---|---|---|
 | Disk | Usage of the startup volume by configurable groups and categories (YAML), segmented bar, legend, top 3 folders per group, free space thresholds | 🟢 done |
 | System | CPU and memory cards (large figure, thin bar, sparkline of the last 120 samples, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
-| Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account. Done: `synology:` config, password in the Keychain (credential window), per-host TLS policy (system, pinned SHA-256, opt-out), DSM login client, polling engine with backoff for the data cards, which come next | 🔵 in progress |
+| Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account. Done: `synology:` config, password in the Keychain (credential window, with a test of the saved password from the window or the NAS card), per-host TLS policy (system, pinned SHA-256, opt-out), DSM login client, polling engine with backoff for the data cards, which come next | 🔵 in progress |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
 | Claude | Usage of your Claude plans, one block per Claude Code profile: weekly limit bar, 5-hour session and per-model weekly donuts, reset times, server severity colours | 🟢 done |
 

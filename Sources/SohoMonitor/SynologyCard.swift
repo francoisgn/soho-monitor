@@ -11,7 +11,8 @@ struct SynologyCard: View {
         if let config = model.config {
             SynologyCardContent(
                 config: config, credentials: model.credentials, trust: model.lastTrust,
-                onSetUp: model.presentSetup)
+                savedTest: model.savedTest, onSetUp: model.presentSetup,
+                onTestSaved: { Task { await model.testSavedPassword() } })
         }
     }
 }
@@ -20,7 +21,9 @@ struct SynologyCardContent: View {
     var config: SynologyConfig
     var credentials: SynologyModel.Credentials
     var trust: TLSTrustState?
+    var savedTest: SynologyModel.SavedPasswordTest = .idle
     var onSetUp: () -> Void
+    var onTestSaved: () -> Void = {}
 
     var body: some View {
         GlassCard(accent: CardColor.nas) {
@@ -28,8 +31,14 @@ struct SynologyCardContent: View {
                 symbol: "externaldrive.connected.to.line.below", title: "NAS", subtitle: "\(config.host)",
                 figure: "", tint: CardColor.nas)
             HStack(spacing: 8) {
-                Text(status).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).lineLimit(2)
+                Text(status).font(.system(size: 12, weight: .medium)).foregroundStyle(statusStyle).lineLimit(2)
                 Spacer(minLength: 4)
+                if credentials == .saved {
+                    Button("Test", action: onTestSaved)
+                        .controlSize(.small)
+                        .disabled(savedTest == .testing)
+                        .help("Test the saved password (macOS may ask to allow Keychain access: Always Allow)")
+                }
                 Button(credentials == .saved ? "Change…" : "Set Up…", action: onSetUp)
                     .controlSize(.small)
             }
@@ -46,9 +55,19 @@ struct SynologyCardContent: View {
         switch credentials {
         case .unknown: "Checking the Keychain…"
         case .missing: "Needs setup: no password saved for \(config.user)"
-        case .saved: "Credentials saved for \(config.user)"
+        case .saved:
+            switch savedTest {
+            case .idle: "Credentials saved for \(config.user)"
+            case .testing: "Testing the saved password…"
+            case .passed: "Saved password works for \(config.user)"
+            case .failed(let error): error.message.capitalizedFirst
+            }
         case .unavailable(let message): message
         }
+    }
+
+    private var statusStyle: AnyShapeStyle {
+        if credentials == .saved, case .failed = savedTest { AnyShapeStyle(.red) } else { AnyShapeStyle(.secondary) }
     }
 }
 
@@ -67,6 +86,7 @@ struct CredentialForm: View {
         case idle
         case busy(String)
         case connected(TLSTrustState)
+        case savedWorks(TLSTrustState)
         case saved(TLSTrustState)
         case removed
         case failed(DSMError)
@@ -78,8 +98,14 @@ struct CredentialForm: View {
     var onTest: (String) async -> Result<TLSTrustState, DSMError>
     var onSave: (String) async -> CredentialSetupOutcome
     var onRemove: () async -> SecretStoreError?
+    /// Nil when a test of the saved password is already running (from the card).
+    var onTestSaved: () async -> Result<TLSTrustState, DSMError>? = { nil }
     @State var status: Status = .idle
     @State private var password = ""
+    /// Whether a password is saved, once this window has saved, removed or found it missing.
+    @State private var savedNow: Bool?
+
+    private var showsSavedActions: Bool { savedNow ?? hasSavedPassword }
 
     private var isBusy: Bool { if case .busy = status { true } else { false } }
 
@@ -105,10 +131,13 @@ struct CredentialForm: View {
         .formStyle(.grouped)
         .safeAreaInset(edge: .bottom) {
             HStack {
-                if (hasSavedPassword && status != .removed) || isSaved {
+                if showsSavedActions {
                     Button("Remove", role: .destructive) { remove() }.disabled(isBusy)
                 }
                 Spacer()
+                if showsSavedActions {
+                    Button("Test Saved Password") { testSaved() }.disabled(isBusy)
+                }
                 Button("Test Connection") { test() }
                     .disabled(!CredentialSetup.canSubmit(password: password) || isBusy)
                 Button("Save") { save() }
@@ -120,8 +149,6 @@ struct CredentialForm: View {
         // A grouped form has no ideal height of its own: without one the window shrinks to a single row.
         .frame(width: 480, height: 430)
     }
-
-    private var isSaved: Bool { if case .saved = status { true } else { false } }
 
     private func test() {
         let typed = password
@@ -141,6 +168,7 @@ struct CredentialForm: View {
             switch await onSave(typed) {
             case .saved(let state):
                 password = ""
+                savedNow = true
                 status = .saved(state)
             case .testFailed(let error): status = .failed(error)
             case .saveFailed(let error): status = .keychainFailed(error)
@@ -154,7 +182,22 @@ struct CredentialForm: View {
             if let error = await onRemove() {
                 status = .keychainFailed(error)
             } else {
+                savedNow = false
                 status = .removed
+            }
+        }
+    }
+
+    private func testSaved() {
+        status = .busy("Reading the saved password, then testing…")
+        Task {
+            switch await onTestSaved() {
+            case nil: status = .idle
+            case .success(let state): status = .savedWorks(state)
+            case .failure(.keychain(let error)): status = .keychainFailed(error)
+            case .failure(let error):
+                if error == .needsSetup { savedNow = false }
+                status = .failed(error)
             }
         }
     }
@@ -176,6 +219,8 @@ private struct StatusRow: View {
             }
         case .connected(let trust):
             success("Connection works. Not saved yet.", trust: trust)
+        case .savedWorks(let trust):
+            success("The saved password works.", trust: trust)
         case .saved(let trust):
             success("Saved in the Keychain.", trust: trust)
         case .removed:
@@ -246,7 +291,7 @@ final class CredentialWindowController {
         let form = CredentialForm(
             config: config, hasSavedPassword: model.credentials == .saved,
             onTest: { await model.test(password: $0) }, onSave: { await model.save(password: $0) },
-            onRemove: { await model.remove() })
+            onRemove: { await model.remove() }, onTestSaved: { await model.testSavedPassword() })
         let host = NSHostingController(rootView: form)
         if let window {
             window.contentViewController = host
@@ -284,6 +329,12 @@ private enum CredentialPreview {
         SynologyCardContent(config: CredentialPreview.config, credentials: .missing, onSetUp: {})
         SynologyCardContent(
             config: CredentialPreview.config, credentials: .saved, trust: .pinnedExpired, onSetUp: {})
+        SynologyCardContent(
+            config: CredentialPreview.config, credentials: .saved, trust: .pinnedExpired,
+            savedTest: .passed(.pinnedExpired), onSetUp: {})
+        SynologyCardContent(
+            config: CredentialPreview.config, credentials: .saved, savedTest: .failed(.keychain(.accessDenied)),
+            onSetUp: {})
     }
     .frame(width: DiskCard.width)
     .padding()
@@ -296,3 +347,4 @@ private enum CredentialPreview {
 }
 #Preview("Form · wrong password") { CredentialPreview.form(.failed(.invalidCredentials)) }
 #Preview("Form · Keychain denied") { CredentialPreview.form(.keychainFailed(.accessDenied)) }
+#Preview("Form · saved password works") { CredentialPreview.form(.savedWorks(.pinnedExpired), saved: true) }
