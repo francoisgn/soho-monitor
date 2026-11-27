@@ -136,7 +136,7 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
 - **Colours** (bar and rings): **green** while the usage keeps pace with the window, **yellow** when it runs ahead
   (more used than the elapsed share of the window: 20 % an hour on the 5-hour window, the elapsed share of the
   7 days on a weekly one), **red** at 90 % or more whatever the pace. The server's severity is a floor: a row it
-  rates warning or critical is never shown milder. The tooltip gives the steady-pace share.
+  rates warning or critical is never shown milder. VoiceOver says "above pace" or "critical" in words.
 - **States**: "Waiting for first update…"; a problem (not logged in, limits unavailable or none reported, Node.js
   or Claude Code not found, config directory not found, helper error or timeout) is written under the block and the
   last good figures stay; figures older than two refresh intervals are dimmed with their age.
