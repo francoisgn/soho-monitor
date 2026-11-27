@@ -46,7 +46,7 @@ import Testing
         #expect(TileOpacity(stored: "50") == .standard)
         #expect(TileOpacity(stored: [50]) == .standard)
         #expect(TileOpacity(stored: Double.nan) == .standard)
-        // A Boolean is an NSNumber too: 0 or 1 %, the glass step either way.
+        // A Boolean is an NSNumber too, but no percent: the default.
         #expect(TileOpacity(stored: true) == .glass)
         #expect(TileOpacity(stored: false) == .glass)
     }

@@ -51,8 +51,10 @@ import Testing
         #expect(PanelOpacity(stored: "full") == .standard)
         #expect(PanelOpacity(stored: [55]) == .standard)
         #expect(PanelOpacity(stored: Double.nan) == .standard)
-        // A Boolean is an NSNumber too (0 or 1 %): clamped to the faintest step, still visible.
-        #expect(PanelOpacity(stored: true) == .p30)
+        // A Boolean is an NSNumber too, but not a percent: read as 1 % it would give the faintest step.
+        #expect(PanelOpacity(stored: true) == .standard)
+        #expect(PanelOpacity(stored: false) == .standard)
+        #expect(PanelOpacity(stored: NSNumber(value: true)) == .standard)
     }
 
     @Test func theAlphaIsThePercent() {

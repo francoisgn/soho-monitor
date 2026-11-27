@@ -18,7 +18,7 @@ public enum PanelOpacity: Int, CaseIterable, Sendable {
     public static let defaultsKey = "panel.opacity"
 
     /// Reads a saved value tolerantly: a number is clamped to 30...100 then snapped to the nearest step (halfway goes
-    /// to the more opaque one, legibility first); nothing saved, or anything else (string, NaN), gives 100 %.
+    /// to the more opaque one, legibility first); nothing saved, or anything else (string, Boolean, NaN), gives 100 %.
     public init(stored: Any?) {
         self =
             PercentStep.nearest(to: stored, in: Self.allCases.map(\.rawValue)).flatMap(Self.init(rawValue:))
@@ -45,10 +45,12 @@ public enum PanelOpacity: Int, CaseIterable, Sendable {
 /// Snapping of a saved percent onto a set of steps, shared by the opacity settings.
 enum PercentStep {
     /// The step nearest to `stored` once clamped to the steps' range; on a tie the larger (more opaque) step. Nil
-    /// when `stored` is not a number, or is NaN.
+    /// when `stored` is not a number, is a Boolean or is NaN.
     static func nearest(to stored: Any?, in steps: [Int]) -> Int? {
+        // A Boolean bridges to NSNumber too (0 or 1), but is no percent: read as 1 % it would pick the faintest step.
         // NaN checked here, not left to `min` / `max`, which would turn it into whichever bound they pick.
-        guard let percent = (stored as? NSNumber)?.doubleValue, !percent.isNaN,
+        guard let number = stored as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+            case let percent = number.doubleValue, !percent.isNaN,
             let lowest = steps.min(), let highest = steps.max()
         else { return nil }
         // Clamped first: at ±1e300 every step is "equally far" in floating point.

@@ -18,7 +18,7 @@ public enum TileOpacity: Int, CaseIterable, Sendable {
     public static let defaultsKey = "panel.tileOpacity"
 
     /// Reads a saved value tolerantly: a number is clamped to 0...100 then snapped to the nearest step (halfway goes
-    /// to the more opaque one, legibility first); nothing saved, or anything else (string, NaN), gives the default.
+    /// to the more opaque one, legibility first); nothing saved, or anything else (string, Boolean, NaN), gives the default.
     public init(stored: Any?) {
         self =
             PercentStep.nearest(to: stored, in: Self.allCases.map(\.rawValue)).flatMap(Self.init(rawValue:))
