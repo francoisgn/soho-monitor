@@ -117,7 +117,10 @@ final class SynologyModel {
 
     private func receive(_ state: RemoteState<NASSnapshot>, from fetcher: NASFetcher, generation: Int) async {
         var failure: TLSFailure?
-        if case .failed = state { failure = await fetcher.lastTLSFailure }
+        switch state {
+        case .failed, .stale: failure = await fetcher.lastTLSFailure
+        default: break
+        }
         guard generation == self.generation else { return }
         nas = state
         tlsFailure = failure

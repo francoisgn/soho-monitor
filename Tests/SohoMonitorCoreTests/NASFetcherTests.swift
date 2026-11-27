@@ -118,14 +118,51 @@ import Testing
         #expect(transport.requests("SYNO.API.Auth login").count == logins)
     }
 
-    @Test func aFailedUpdateCheckIsRetriedNextCycle() async throws {
+    @Test func aFailedUpdateCheckIsRetriedAfterAnHourNotEveryCycle() async throws {
         let transport = try nas()
         transport.replace(
             "SYNO.Core.Upgrade.Server check", json: DSMFixtures.error(117), try NASFixtures.text(NASFixtures.upgrade))
+        let clock = TestNow()
+        let fetcher = fetcher(transport, clock: clock)
+        _ = await fetcher.fetch()
+        clock.advance(by: 60)
+        let second = try await fetcher.fetch().get()
+        #expect(second.update == .unavailable("SYNO.Core.Upgrade.Server failed (DSM error 117)"))
+        #expect(transport.requests("SYNO.Core.Upgrade.Server check").count == 1)
+        clock.advance(by: 3600)
+        let later = try await fetcher.fetch().get()
+        #expect(later.update.value?.available == true)
+        #expect(transport.requests("SYNO.Core.Upgrade.Server check").count == 2)
+    }
+
+    @Test func aLoginFailureOfAnyKindEndsTheCycleWithOneLogin() async throws {
+        let transport = try nas()
+        transport.replace("SYNO.API.Auth login", .success(StubTransport.Reply(status: 500, body: "<html>")))
+        let result = await fetcher(transport).fetch()
+        #expect(result == .failure(.failed(DSMError.invalidResponse("HTTP 500").message)))
+        #expect(transport.requests("SYNO.API.Auth login").count == 1)
+        #expect(transport.requests.allSatisfy { !Self.cardCalls.contains("\($0["api"] ?? "") \($0["method"] ?? "")") })
+    }
+
+    @Test func aKeptSessionToAVanishedNASIsUnreachableNotFourEmptySections() async throws {
+        let transport = try nas()
         let fetcher = fetcher(transport)
         _ = await fetcher.fetch()
-        let second = try await fetcher.fetch().get()
-        #expect(second.update.value?.available == true)
+        for call in Self.cardCalls { transport.replace(call, .failure(.unreachable("timed out"))) }
+        let result = await fetcher.fetch()
+        #expect(result == .failure(.unreachable("timed out")))
+    }
+
+    @Test func afterCloseACycleStillRunningSendsNothingMore() async throws {
+        let transport = try nas()
+        let fetcher = fetcher(transport)
+        _ = await fetcher.fetch()
+        await fetcher.close()
+        let sent = transport.requests.count
+        let result = await fetcher.fetch()
+        #expect(result == .failure(.failed(DSMError.closed.message)))
+        #expect(transport.requests.count == sent)
+        #expect(transport.requests("SYNO.API.Auth logout").count == 1)
     }
 
     @Test func dockerNotInstalledHidesTheSection() async throws {

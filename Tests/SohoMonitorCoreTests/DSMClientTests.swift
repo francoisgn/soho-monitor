@@ -96,6 +96,39 @@ enum DSMFixtures {
     static let ok = #"{"success":true}"#
 }
 
+/// Holds the login answer until `open()`: a login in flight while the client is closed.
+final class GatedLoginTransport: HTTPTransport {
+    let stub = StubTransport()
+    private let gate = Mutex<(open: Bool, waiters: [CheckedContinuation<Void, Never>])>((false, []))
+    var trustState: TLSTrustState? { stub.trustState }
+
+    /// A login is held at the gate.
+    var loginWaiting: Bool { gate.withLock { !$0.waiters.isEmpty } }
+
+    func open() {
+        let waiters = gate.withLock { state in
+            state.open = true
+            defer { state.waiters = [] }
+            return state.waiters
+        }
+        for waiter in waiters { waiter.resume() }
+    }
+
+    func send(_ request: HTTPRequest) async throws(TransportError) -> HTTPResponse {
+        if request["method"] == "login" {
+            await withCheckedContinuation { continuation in
+                let resumeNow = gate.withLock { state in
+                    if state.open { return true }
+                    state.waiters.append(continuation)
+                    return false
+                }
+                if resumeNow { continuation.resume() }
+            }
+        }
+        return try await stub.send(request)
+    }
+}
+
 @Suite(.timeLimit(.minutes(1))) struct DSMClientTests {
     private let base = URL(string: "https://nas.example.test:5001")!
 
@@ -417,5 +450,47 @@ enum DSMFixtures {
         transport.on("SYNO.API.Auth login", json: DSMFixtures.error(403))
         let result = await SynologyConnection.test(config: config, password: "typed", transport: transport)
         #expect(result == .failure(.otpRequired))
+    }
+}
+
+@Suite(.timeLimit(.minutes(1))) struct DSMClientCloseTests {
+    private let base = URL(string: "https://nas.example.test:5001")!
+
+    @Test func aClosedClientSendsNothing() async throws {
+        let transport = StubTransport()
+        transport.on("SYNO.API.Info query", json: DSMFixtures.info)
+        transport.on("SYNO.API.Auth login", json: DSMFixtures.login(sid: "SID-1"))
+        let client = DSMClient(baseURL: base, account: "<user>", password: { .success("pw") }, transport: transport)
+        await client.close()
+        await #expect(throws: DSMError.closed) { try await client.call("SYNO.Core.System", version: 1, method: "info") }
+        #expect(transport.requests.isEmpty)
+    }
+
+    @Test func aLoginThatCompletesAfterCloseIsLoggedOut() async throws {
+        let transport = GatedLoginTransport()
+        transport.stub.on("SYNO.API.Info query", json: DSMFixtures.info)
+        transport.stub.on("SYNO.API.Auth login", json: DSMFixtures.login(sid: "SID-LATE"))
+        transport.stub.on("SYNO.API.Auth logout", json: DSMFixtures.ok)
+        let client = DSMClient(baseURL: base, account: "<user>", password: { .success("pw") }, transport: transport)
+        let call = Task { () -> DSMError? in
+            do throws(DSMError) {
+                _ = try await client.call("SYNO.Core.System", version: 1, method: "info")
+                return nil
+            } catch {
+                return error
+            }
+        }
+        // Wait until the login is on the wire, then close while it is in flight.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while !transport.loginWaiting {
+            try #require(ContinuousClock.now < deadline, "the login was never sent")
+            await Task.yield()
+        }
+        await client.close()
+        transport.open()
+        #expect(await call.value == .closed)
+        let logout = try #require(transport.stub.requests("SYNO.API.Auth logout").first)
+        #expect(logout["_sid"] == "SID-LATE")
+        #expect(transport.stub.requests("SYNO.Core.System info").isEmpty)
     }
 }

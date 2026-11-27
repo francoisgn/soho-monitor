@@ -26,6 +26,8 @@ struct NASCard: View {
                 NASStatusLine(
                     text: "Data from \(RelativeAge.string(from: since, now: now)): \(reason)",
                     level: .warning)
+                // A changed pin with data still shown: the fingerprint to check, at once.
+                if let presented = tlsFailure?.presented { FingerprintRow(fingerprint: presented) }
             case .loading:
                 header(figure: "—")
                 NASStatusLine(text: "Connecting to \(config.host)…", level: .normal)

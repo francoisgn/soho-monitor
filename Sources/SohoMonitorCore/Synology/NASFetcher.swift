@@ -69,10 +69,21 @@ public actor NASFetcher {
     static let storage = "SYNO.Storage.CGI.Storage"
     static let upgrade = "SYNO.Core.Upgrade.Server"
     static let docker = "SYNO.Docker.Container"
+    /// Wait before checking for a DSM update again after a failed check: #25's floor.
+    static let updateRetry: TimeInterval = 3600
 
     public func fetch() async -> Result<NASSnapshot, RemoteFailure> {
         answered = false
         do throws(RemoteFailure) {
+            // The session first (no request when one is kept): whatever makes the login fail concerns every section,
+            // and must not be retried once per section.
+            do throws(DSMError) {
+                // Not `answered`: with a kept session nothing was sent, and the NAS may be gone since.
+                try await client.login()
+            } catch {
+                if case .tls(let failure) = error { lastTLSFailure = failure }
+                throw error.remoteFailure
+            }
             var snapshot = NASSnapshot()
             if config.sections.contains(.system) { snapshot.system = try await fetchSystem() }
             if config.sections.contains(.storage) {
@@ -98,9 +109,10 @@ public actor NASFetcher {
         }
     }
 
-    /// Ends the session on the NAS (the card is going away).
+    /// Ends the session on the NAS and stops this fetcher for good (the card's configuration or password changed): a
+    /// cycle still running sends nothing more and leaves no session open.
     public func close() async {
-        await client.logout()
+        await client.close()
     }
 
     // MARK: Sections
@@ -128,8 +140,12 @@ public actor NASFetcher {
         let result = try await section(Self.upgrade) { () async throws(DSMError) in
             try NASUpdate.decode(try await self.client.call(Self.upgrade, version: 1, method: "check"))
         }
-        // Only an answer is kept for the interval: a failed check is tried again at the next cycle.
-        if case .value = result { lastUpdateCheck = (now(), result) }
+        // An answer is kept for the interval; a failed check is tried again after an hour (it contacts Synology).
+        if case .value = result {
+            lastUpdateCheck = (now(), result)
+        } else {
+            lastUpdateCheck = (now().addingTimeInterval(min(Self.updateRetry, interval) - interval), result)
+        }
         return result
     }
 
@@ -164,7 +180,9 @@ public actor NASFetcher {
     /// Credentials problems always end the cycle; no answer at all yet (unreachable, TLS) too.
     static func endsCycle(_ error: DSMError, answered: Bool) -> Bool {
         switch error {
-        case .needsSetup, .keychain, .sessionLost: return true
+        case .needsSetup, .keychain, .sessionLost, .closed: return true
+        // A login redone inside a section (session expired) that fails.
+        case .api(let name, _) where name == "SYNO.API.Auth": return true
         case .permissionDenied: return false
         case .unreachable, .tls: return !answered
         default: return error.isAuthFailure
