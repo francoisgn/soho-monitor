@@ -129,15 +129,55 @@ import Testing
         delegate.forgetFailure()
         #expect(delegate.lastFailure == nil)
         #expect(
-            URLSessionTransport.map(URLError(.cancelled), tlsFailure: delegate.lastFailure)
+            URLSessionTransport.map(URLError(.cancelled), host: "nas.example.test", tlsFailure: delegate.lastFailure)
                 == .failed("network error -999"))
         #expect(
-            URLSessionTransport.map(URLError(.cancelled), tlsFailure: .noCertificate) == .tls(.noCertificate))
+            URLSessionTransport.map(URLError(.cancelled), host: "nas.example.test", tlsFailure: .noCertificate)
+                == .tls(.noCertificate))
     }
 
     private final class NoSender: NSObject, URLAuthenticationChallengeSender {
         func use(_ credential: URLCredential, for challenge: URLAuthenticationChallenge) {}
         func continueWithoutCredential(for challenge: URLAuthenticationChallenge) {}
         func cancel(_ challenge: URLAuthenticationChallenge) {}
+    }
+}
+
+/// An IP literal cannot fail a DNS lookup: "host not found" for one is macOS Local Network privacy denying the app
+/// (TN3179; seen on a Mac where the app was denied and Terminal, allowed automatically, reached the NAS).
+@Suite struct LocalNetworkDenialTests {
+    @Test(arguments: ["192.168.1.20", "10.0.0.2", "fe80::1", "[fd00::2]"])
+    func hostNotFoundForAnIPLiteralPointsAtLocalNetworkPrivacy(host: String) {
+        for code in [URLError.Code.cannotFindHost, .dnsLookupFailed] {
+            #expect(
+                URLSessionTransport.map(URLError(code), host: host, tlsFailure: nil)
+                    == .unreachable(TransportError.localNetworkDenied))
+        }
+    }
+
+    @Test(arguments: ["nas.example.test", "nas", "192.168.1.300", "1.2.3"])
+    func hostNotFoundForANameStaysHostNotFound(host: String) {
+        #expect(
+            URLSessionTransport.map(URLError(.cannotFindHost), host: host, tlsFailure: nil)
+                == .unreachable("host not found"))
+    }
+
+    @Test func theMessageSaysWhereToAllowIt() {
+        let message = DSMError.unreachable(TransportError.localNetworkDenied).message
+        #expect(message.contains("Local Network privacy"))
+        #expect(message.contains("System Settings › Privacy & Security › Local Network"))
+    }
+}
+
+@Suite struct RequestTimeoutTests {
+    @Test func aRequestTimeoutOverridesTheTransportDefault() {
+        var request = HTTPRequest(url: URL(string: "https://nas.example.test:5001/webapi/entry.cgi")!, fields: [])
+        #expect(URLSessionTransport.urlRequest(for: request, defaultTimeout: 10).timeoutInterval == 10)
+        request.timeout = 30
+        #expect(URLSessionTransport.urlRequest(for: request, defaultTimeout: 10).timeoutInterval == 30)
+    }
+
+    @Test func theWholeExchangeMayLastAsLongAsTheLongestRequest() {
+        #expect(URLSessionTransport.resourceTimeout(defaultTimeout: 10) >= DSMClient.loginTimeout)
     }
 }

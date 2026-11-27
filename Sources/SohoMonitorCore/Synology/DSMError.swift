@@ -16,8 +16,10 @@ public enum DSMError: Error, Sendable, Equatable {
     case invalidCredentials
     /// 401: the account is disabled.
     case accountDisabled
-    /// 402 at login (denied permission), or 105 again after a fresh login (the account may not use this API).
+    /// 105 again after a fresh login: the account may not use this API.
     case permissionDenied
+    /// 402 at login: the account may not sign in through the Web API (its permissions or group in DSM).
+    case signInNotAllowed
     /// 403, 404, 406: the account requires 2-factor authentication, which an unattended monitor cannot answer.
     case otpRequired
     /// 407: DSM blocked this Mac's IP address (auto block after failed logins).
@@ -42,7 +44,7 @@ public enum DSMError: Error, Sendable, Equatable {
         switch code {
         case 400: .invalidCredentials
         case 401: .accountDisabled
-        case 402: .permissionDenied
+        case 402: .signInNotAllowed
         case 403, 404, 406: .otpRequired
         case 407: .ipBlocked
         case 408, 409, 410: .passwordExpired
@@ -54,7 +56,8 @@ public enum DSMError: Error, Sendable, Equatable {
     /// that repeated bad logins never get the account or the Mac blocked.
     public var isAuthFailure: Bool {
         switch self {
-        case .invalidCredentials, .accountDisabled, .permissionDenied, .otpRequired, .ipBlocked, .passwordExpired:
+        case .invalidCredentials, .accountDisabled, .permissionDenied, .signInNotAllowed, .otpRequired, .ipBlocked,
+            .passwordExpired:
             true
         default:
             false
@@ -70,6 +73,8 @@ public enum DSMError: Error, Sendable, Equatable {
         case .invalidCredentials: "wrong user name or password"
         case .accountDisabled: "the DSM account is disabled"
         case .permissionDenied: "the DSM account is not allowed to use this (check its application permissions)"
+        case .signInNotAllowed:
+            "the DSM account is not allowed to sign in through the API: check its permissions and group in DSM"
         case .otpRequired:
             "the DSM account requires 2-factor authentication: use a dedicated account without it"
         case .ipBlocked: "DSM blocked this Mac's IP address (Control Panel › Security › Protection › Allow/Block List)"

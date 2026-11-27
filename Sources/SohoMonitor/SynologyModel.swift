@@ -17,6 +17,10 @@ final class SynologyModel {
     private(set) var credentials: Credentials = .unknown
     /// TLS state of the last successful test, for its warning.
     private(set) var lastTrust: TLSTrustState?
+    /// `Test Saved Password`, shared by the card and the credential window; reset on a config change, save or
+    /// removal, which drops the result of a test still running.
+    private var savedTestState = SavedPasswordTest()
+    var savedTest: SavedPasswordTest.Phase { savedTestState.phase }
 
     /// Opens the credential window; set by the app delegate.
     @ObservationIgnored var presentSetup: () -> Void = {}
@@ -35,6 +39,7 @@ final class SynologyModel {
         let hostChanged =
             config?.host != self.config?.host || config?.port != self.config?.port || config?.tls != self.config?.tls
         self.config = config
+        savedTestState.reset()
         // The TLS state is known only after a connection (Test, Save; the data cards' polling, #27, will refresh it
         // at each cycle); it stays valid while the host and its policy do not change.
         if hostChanged { lastTrust = nil }
@@ -76,6 +81,7 @@ final class SynologyModel {
         if case .saved(let state) = outcome {
             lastTrust = state
             credentials = .saved
+            savedTestState.reset()
         }
         return outcome
     }
@@ -91,16 +97,50 @@ final class SynologyModel {
                 return error
             }
         }.value
-        if error == nil { credentials = .missing }
+        if error == nil {
+            credentials = .missing
+            savedTestState.reset()
+        }
         return error
     }
 
-    // Off the main actor: the network exchange and the Keychain write (which may prompt).
+    /// `Test Saved Password`: reads the password from the Keychain (the macOS access prompt the first time, where
+    /// the user chooses Always Allow), then the same test as a typed password.
+    @discardableResult
+    func testSavedPassword() async -> SavedPasswordTestReply {
+        guard let config else { return .done(.failure(.needsSetup)) }
+        guard let ticket = savedTestState.begin() else { return .alreadyRunning }
+        let result = await Self.testSaved(config: config, secrets: secrets)
+        let reply = savedTestState.finish(ticket, with: result)
+        guard reply != .overtaken else { return reply }
+        switch result {
+        case .success(let state):
+            lastTrust = state
+            credentials = .saved
+        case .failure(let error):
+            // The item vanished since the existence check: the card goes back to "Needs setup".
+            if error == .needsSetup { credentials = .missing }
+        }
+        return reply
+    }
+
+    // Off the main actor: the network exchange and the Keychain read or write (which may prompt).
     private nonisolated static func test(config: SynologyConfig, password: String) async
         -> Result<TLSTrustState, DSMError>
     {
         await SynologyConnection.test(
             config: config, password: password, transport: SynologyConnection.transport(for: config))
+    }
+
+    private nonisolated static func testSaved(config: SynologyConfig, secrets: SecretCache) async
+        -> Result<TLSTrustState, DSMError>
+    {
+        await CredentialSetup.testSaved(
+            item: config.keychainItem, secrets: secrets,
+            test: { saved in
+                await SynologyConnection.test(
+                    config: config, password: saved, transport: SynologyConnection.transport(for: config))
+            })
     }
 
     private nonisolated static func testThenSave(config: SynologyConfig, password: String, secrets: SecretCache)

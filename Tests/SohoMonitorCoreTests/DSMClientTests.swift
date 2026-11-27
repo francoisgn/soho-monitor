@@ -111,7 +111,13 @@ enum DSMFixtures {
         #expect(login["passwd"] == "pw&=+ %")
         #expect(login["session"] == "soho-monitor")
         #expect(login["format"] == "sid")
+        // A DS416play took 3.8 s to answer a v6 login (29 s for v7): longer than the 10 s of other calls, so login
+        // waits longer; the other calls keep the transport's default.
+        #expect(login.timeout == DSMClient.loginTimeout)
+        #expect(DSMClient.loginTimeout >= 30)
+        #expect(transport.requests("SYNO.API.Info query").allSatisfy { $0.timeout == nil })
         let call = try #require(transport.requests("SYNO.Core.System info").first)
+        #expect(call.timeout == nil)
         #expect(call["_sid"] == "SID-1")
         #expect(call["SynoToken"] == "TOKEN0")
         // Credentials and the sid travel in the POST body, never in the URL.
@@ -170,12 +176,19 @@ enum DSMFixtures {
     }
 
     @Test(arguments: [
-        (400, DSMError.invalidCredentials), (401, .accountDisabled), (402, .permissionDenied), (403, .otpRequired),
+        (400, DSMError.invalidCredentials), (401, .accountDisabled), (402, .signInNotAllowed), (403, .otpRequired),
         (404, .otpRequired), (406, .otpRequired), (407, .ipBlocked), (408, .passwordExpired),
         (409, .passwordExpired), (410, .passwordExpired), (499, .api(name: "SYNO.API.Auth", code: 499)),
     ])
     func loginCodesFollowTheGuide(code: Int, error: DSMError) {
         #expect(DSMError.login(code: code) == error)
+    }
+
+    @Test func aLoginRefusedFor402SaysTheAccountMayNotSignInThroughTheAPI() {
+        let message = DSMError.signInNotAllowed.message
+        #expect(message.contains("not allowed to sign in through the API"))
+        #expect(message.contains("permissions"))
+        #expect(DSMError.signInNotAllowed.isAuthFailure)
     }
 
     @Test func noPasswordMeansNeedsSetupAndNoRequestAtAll() async {

@@ -36,6 +36,8 @@ mkdir -p "$helper"
 cp Helpers/claude-usage/package.json Helpers/claude-usage/package-lock.json Helpers/claude-usage/usage.mjs "$helper/"
 (cd "$helper" && npm ci --omit=optional --omit=peer --omit=dev --ignore-scripts --no-audit --no-fund \
   --loglevel=error >/dev/null) || ko "npm ci failed for the Claude helper"
+# NSLocalNetworkUsageDescription: the text of the Local Network privacy alert, needed by an app that reaches LAN
+# hosts (TN3179, https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).
 cat >"$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -51,6 +53,8 @@ cat >"$app/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>SohoMonitor connects to the Synology NAS and UniFi controller named in your configuration on the local network.</string>
 </dict>
 </plist>
 PLIST

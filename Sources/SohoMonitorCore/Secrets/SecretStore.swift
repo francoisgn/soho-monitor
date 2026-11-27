@@ -209,6 +209,11 @@ public final class SecretCache: SecretStore {
         try store.remove(item)
     }
 
+    /// Forgets one cached secret: the next read asks the store (the item may have been changed outside the app).
+    public func forget(_ item: String) {
+        cached.withLock { _ = $0.removeValue(forKey: item) }
+    }
+
     /// Forgets every cached secret (the item may have been changed outside the app).
     public func forgetAll() {
         cached.withLock { $0.removeAll() }
