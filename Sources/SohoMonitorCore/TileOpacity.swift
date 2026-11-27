@@ -20,21 +20,9 @@ public enum TileOpacity: Int, CaseIterable, Sendable {
     /// Reads a saved value tolerantly: a number is clamped to 0...100 then snapped to the nearest step (halfway goes
     /// to the more opaque one, legibility first); nothing saved, or anything else (string, NaN), gives the default.
     public init(stored: Any?) {
-        guard let percent = (stored as? NSNumber)?.doubleValue, !percent.isNaN else {
-            // NaN checked here, not left to `min` / `max`, which would turn it into whichever bound they pick.
-            self = .standard
-            return
-        }
-        // Clamped first: at ±1e300 every step is "equally far" in floating point.
-        let clamped = min(100, max(0, percent))
-        var nearest = Self.standard
-        var gap = Double.infinity
-        // Ascending order and `<=`: on a tie the later, more opaque step wins.
-        for step in Self.allCases where abs(Double(step.rawValue) - clamped) <= gap {
-            nearest = step
-            gap = abs(Double(step.rawValue) - clamped)
-        }
-        self = nearest
+        self =
+            PercentStep.nearest(to: stored, in: Self.allCases.map(\.rawValue)).flatMap(Self.init(rawValue:))
+            ?? .standard
     }
 
     /// The menu label.

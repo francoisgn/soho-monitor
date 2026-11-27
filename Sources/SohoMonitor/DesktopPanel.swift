@@ -63,6 +63,14 @@ final class DesktopPanelController {
         reportOnScreen()
     }
 
+    /// Fades the whole window: AppKit composites the panel (Liquid Glass included) as at full opacity, then the
+    /// window server applies the alpha, so the glass keeps its look. A SwiftUI `.opacity` on the root view would
+    /// instead fade each layer on its own, glass backdrops included.
+    func setAlpha(_ alpha: Double) {
+        let value = CGFloat(alpha)
+        if panel.alphaValue != value { panel.alphaValue = value }
+    }
+
     /// Live sampling runs only while this is true: a hidden panel, or one AppKit reports as fully occluded (covered
     /// by other windows), costs nothing.
     var isOnScreen: Bool { panel.isVisible && panel.occlusionState.contains(.visible) }
