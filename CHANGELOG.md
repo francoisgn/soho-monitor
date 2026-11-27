@@ -15,6 +15,9 @@ Notable changes, newest first. Entries accumulate under "Unreleased" until the f
   swap) above the disk card on the desktop panel.
 - Desktop panel anchored by its top-left corner (default: top-left of the main screen, under the menu bar; saved as
   `panel.topLeft`, the old bottom-left `panel.origin` is dropped): it grows downward and stays inside the screen.
+- App icon (#50): stacked glass gauges (blue, orange, purple) on a night blue → indigo gradient, an Icon Composer
+  package (`Resources/AppIcon.icon`) compiled by `actool` in `scripts/bundle-app.sh` into `Assets.car` (default,
+  dark, tinted, clear) and `AppIcon.icns`; without `actool` the app is built with the generic icon and a warning.
 - Claude module (#35, #36–#39): `claude:` configuration section (profiles by `label` and `config_dir`,
   `refresh_minutes`); a bundled Node helper (`Helpers/claude-usage`, pinned Claude Agent SDK) that asks the installed
   `claude` for the plan usage of one profile without sending a prompt (ADR 0001); desktop card per profile with the
