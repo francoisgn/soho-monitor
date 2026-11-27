@@ -2,10 +2,12 @@ import Foundation
 
 /// One stretch of the disk card's bar: a group, or the free space after the last group.
 public struct BarSegment: Sendable, Equatable {
+    /// What a segment stands for; also the hover state of the card (bar and chips).
     public enum Kind: Sendable, Hashable {
         case group(String)
         case free
 
+        /// The group's name, or "Free".
         public var name: String {
             switch self {
             case .group(let name): name
@@ -15,11 +17,14 @@ public struct BarSegment: Sendable, Equatable {
     }
 
     public var kind: Kind
+    /// The group's size, or the free space.
     public var bytes: Int64
     /// Leading edge, in points from the bar's leading edge.
     public var start: Double
+    /// Width in points, never past the bar's end.
     public var width: Double
 
+    /// Trailing edge, in points.
     public var end: Double { start + width }
 
     /// Name shown on hover and read by VoiceOver.
@@ -88,7 +93,9 @@ public enum DiskBar {
 
 /// The legend chips to show when the legend is folded, and how many are left out.
 public struct LegendSelection: Sendable, Equatable {
+    /// Chips to show, in the bar's order.
     public var shown: [DiskGroup]
+    /// Groups left out: the "+N more" chip, none when zero.
     public var hiddenCount: Int
 
     public init(shown: [DiskGroup], hiddenCount: Int) {
