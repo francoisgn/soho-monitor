@@ -14,3 +14,11 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+  # Node helper of the Claude card: the Agent SDK is pinned exactly (docs/adr/0001-claude-usage-source.md); check
+  # the card before merging a bump (its usage method is experimental).
+  - package-ecosystem: npm
+    directory: /Helpers/claude-usage
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

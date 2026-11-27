@@ -3,9 +3,12 @@ import Foundation
 /// The whole configuration file (`~/.config/soho-monitor/config.yaml`). Modules add their section here.
 public struct AppConfig: Sendable, Equatable {
     public var disk: DiskConfig
+    /// `claude:` section; without it the Claude card is off.
+    public var claude: ClaudeConfig
 
-    public init(disk: DiskConfig) {
+    public init(disk: DiskConfig, claude: ClaudeConfig = .disabled) {
         self.disk = disk
+        self.claude = claude
     }
 
     /// Used until a valid file has been read: no category, defaults everywhere.
