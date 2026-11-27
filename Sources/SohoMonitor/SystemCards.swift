@@ -97,7 +97,13 @@ private enum PreviewData {
         name: "Apple M4", physicalCores: 10, logicalCores: 10, levels: [(4, "Performance"), (6, "Efficiency")])
 
     static func wave(_ base: Double, _ swing: Double) -> [Double] {
-        (0..<90).map { base + swing * sin(Double($0) / 6) + swing / 3 * sin(Double($0) / 1.7) }
+        // Split into typed steps: as one expression it exceeds the type checker's time limit on the CI runner.
+        (0..<90).map { (index: Int) -> Double in
+            let x = Double(index)
+            let slow: Double = swing * sin(x / 6)
+            let fast: Double = swing / 3 * sin(x / 1.7)
+            return base + slow + fast
+        }
     }
 
     static func cpu(_ total: Double) -> MetricStatus<CPUUsage> {
