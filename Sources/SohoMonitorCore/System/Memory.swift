@@ -60,12 +60,22 @@ public enum MemoryPressure: Sendable, Equatable {
         }
     }
 
-    /// Text of the pressure pill.
+    /// Text of the pressure pill in the full layout; hover text of the compact one.
     public var label: String {
         switch self {
         case .normal: "Pressure normal"
         case .warning: "Pressure warning"
         case .critical: "Pressure critical"
+        }
+    }
+
+    /// Text of the pill in the compact memory card, where the long label and the swap pill do not fit on one line;
+    /// the long label stays in the pill's hover text.
+    public var shortLabel: String {
+        switch self {
+        case .normal: "Normal"
+        case .warning: "Warning"
+        case .critical: "Critical"
         }
     }
 }

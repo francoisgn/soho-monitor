@@ -30,14 +30,18 @@ enum CardColor {
 struct GlassCard<Content: View>: View {
     var accent: Color
     var cornerRadius: CGFloat = 24
+    /// Gap between the card's rows; the compact CPU and memory cards use less.
+    var spacing: CGFloat = 8
+    /// Inner margin; the compact CPU and memory cards use less vertical room.
+    var padding = EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)
     @ViewBuilder var content: Content
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        VStack(alignment: .leading, spacing: 8) { content }
-            .padding(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16))
+        VStack(alignment: .leading, spacing: spacing) { content }
+            .padding(padding)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background {
                 if reduceTransparency {
@@ -76,19 +80,21 @@ struct MetricHeader: View {
     var subtitle: String?
     var figure: String
     var tint: Color
+    /// A smaller icon and figure and a tighter subtitle gap, for the compact CPU and memory cards.
+    var compact = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: compact ? 1 : 4) {
             HStack(alignment: .center, spacing: 8) {
                 Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: compact ? 11 : 12, weight: .semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
+                    .frame(width: compact ? 22 : 26, height: compact ? 22 : 26)
                     .background(tint.gradient, in: .circle)
                 Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 4)
                 Text(figure)
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(.system(size: compact ? 24 : 26, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(tint)
                     .contentTransition(.numericText())
@@ -163,6 +169,8 @@ struct Sparkline: View {
     /// Points the full width stands for, so the line grows from the right while the history fills up.
     var capacity: Int
     var tint: Color
+    /// Drawing height; the compact CPU and memory cards use a shorter one.
+    var height: CGFloat = 30
 
     var body: some View {
         let heights = SparklineScale.normalized(values, domain: domain)
@@ -193,7 +201,7 @@ struct Sparkline: View {
                 .stroke(.primary.opacity(0.12), lineWidth: 1)
             }
         }
-        .frame(height: 30)
+        .frame(height: height)
         .accessibilityHidden(true)
     }
 }

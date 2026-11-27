@@ -1,6 +1,13 @@
 import SohoMonitorCore
 import SwiftUI
 
+/// Metrics of the compact CPU and memory cards: shorter than the other cards, same content.
+private enum Compact {
+    static let spacing: CGFloat = 6
+    static let padding = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+    static let sparklineHeight: CGFloat = 22
+}
+
 /// The CPU card: total usage, chip name, core pills, thin bar and history.
 struct CPUCard: View {
     var status: MetricStatus<CPUUsage>
@@ -10,15 +17,17 @@ struct CPUCard: View {
     var body: some View {
         let usage: CPUUsage? = if case .value(let usage) = status { usage } else { nil }
         let tint = CardColor.tint(usage?.level ?? .normal, accent: CardColor.cpu)
-        GlassCard(accent: CardColor.cpu) {
+        GlassCard(accent: CardColor.cpu, spacing: Compact.spacing, padding: Compact.padding) {
             MetricHeader(
                 symbol: "cpu", title: "CPU", subtitle: info.name ?? " ", figure: PercentFormat.whole(usage?.total),
-                tint: tint
+                tint: tint, compact: true
             )
             .help(usage.map(Self.detail) ?? "")
             ThinBar(fraction: usage?.total, tint: tint)
             // No value now: no old history either, next to a dash.
-            Sparkline(values: usage == nil ? [] : history, capacity: SystemModel.historyCapacity, tint: tint)
+            Sparkline(
+                values: usage == nil ? [] : history, capacity: SystemModel.historyCapacity, tint: tint,
+                height: Compact.sparklineHeight)
             PillRow(pills: StatusPill.pills(for: status) + info.pills.map { InfoPill(text: $0) })
         }
     }
@@ -36,14 +45,16 @@ struct MemoryCard: View {
     var body: some View {
         let reading: MemoryReading? = if case .value(let reading) = status { reading } else { nil }
         let tint = CardColor.tint(reading?.level ?? .normal, accent: CardColor.memory)
-        GlassCard(accent: CardColor.memory) {
+        GlassCard(accent: CardColor.memory, spacing: Compact.spacing, padding: Compact.padding) {
             MetricHeader(
                 symbol: "memorychip", title: "Memory", subtitle: reading?.usedOfTotal ?? " ",
-                figure: PercentFormat.whole(reading?.usedFraction), tint: tint
+                figure: PercentFormat.whole(reading?.usedFraction), tint: tint, compact: true
             )
             .help(reading?.breakdown ?? "")
             ThinBar(fraction: reading?.usedFraction, tint: tint)
-            Sparkline(values: reading == nil ? [] : history, capacity: SystemModel.historyCapacity, tint: tint)
+            Sparkline(
+                values: reading == nil ? [] : history, capacity: SystemModel.historyCapacity, tint: tint,
+                height: Compact.sparklineHeight)
             PillRow(pills: StatusPill.pills(for: status) + Self.pills(reading))
         }
     }
@@ -52,7 +63,11 @@ struct MemoryCard: View {
         guard let reading else { return [] }
         var pills: [InfoPill] = []
         if let pressure = reading.pressure {
-            pills.append(InfoPill(text: pressure.label, tint: CardColor.tint(reading.level, accent: CardColor.memory)))
+            // The short label keeps the pressure and swap pills on one line; the dot's colour and the hover name it.
+            pills.append(
+                InfoPill(
+                    text: pressure.shortLabel, tint: CardColor.tint(reading.level, accent: CardColor.memory),
+                    help: "Memory \(pressure.label.lowercased())"))
         }
         if let swap = reading.swapText {
             pills.append(InfoPill(text: swap, help: reading.swap.map { "Swap file: \(MemoryFormat.short($0.total))" }))
