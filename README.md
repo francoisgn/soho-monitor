@@ -138,9 +138,10 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
   **per-model weekly** limit (e.g. Fable), as a small ring, the percent, the name and the time to the reset. Reset
   times are short: `44m`, `3h05`, `2d12h` (`now` once passed, `–` unknown); VoiceOver reads them in full.
 - **Colours** (bar and rings): **green** while the usage keeps pace with the window, **yellow** when it runs ahead
-  (more used than the elapsed share of the window: 20 % an hour on the 5-hour window, the elapsed share of the
-  7 days on a weekly one), **red** at 90 % or more whatever the pace. The server's severity is a floor: a row it
-  rates warning or critical is never shown milder. VoiceOver says "above pace" or "critical" in words.
+  by more than 5 points (more used than the elapsed share of the window plus 5 points: 20 % an hour on the 5-hour
+  window, so 25 % one hour in is still green; the elapsed share of the 7 days on a weekly one), **red** at 90 % or
+  more whatever the pace. The server's severity is a floor: a row it rates warning or critical is never shown
+  milder. VoiceOver says "above pace" or "critical" in words.
 - **States**: "Waiting for first update…"; a problem (not logged in, limits unavailable or none reported, Node.js
   or Claude Code not found, config directory not found, helper error or timeout) is written under the block and the
   last good figures stay; figures older than two refresh intervals are dimmed with their age.

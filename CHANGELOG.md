@@ -22,7 +22,7 @@ Notable changes, newest first. Entries accumulate under "Unreleased" until the f
   `refresh_minutes`); a bundled Node helper (`Helpers/claude-usage`, pinned Claude Agent SDK) that asks the installed
   `claude` for the plan usage of one profile without sending a prompt (ADR 0001); desktop card per profile with the
   weekly bar, then one line per 5-hour session and per-model weekly limit (ring, percent, short reset time, #78),
-  pace colours (green on pace, yellow ahead of the window's elapsed share, red at 90 %, never milder than the
+  pace colours (green on pace, yellow more than 5 points ahead of the window's elapsed share (#82), red at 90 %, never milder than the
   server's severity), waiting / problem / stale states; refreshed only while the panel is shown.
 - Disk module (#1): YAML configuration (`~/.config/soho-monitor/config.yaml`, example in `config/example.yaml`) with
   validation, line-located errors, live reload and last valid configuration kept; scanner (`du -k -d 1` at background

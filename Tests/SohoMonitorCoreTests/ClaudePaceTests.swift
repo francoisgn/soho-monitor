@@ -88,34 +88,48 @@ import Testing
         #expect(session(0, elapsed: 2.5 * hour).expectedPercent(now: now) == 50)
     }
 
-    @Test func onPaceIsNormalAheadIsWarning() {
-        // 20 %/h on the 5-hour window: one hour in, 20 % is exactly on pace.
+    @Test func paceMarginIsFivePoints() {
+        #expect(UsageLimit.paceMarginPercent == 5)
+    }
+
+    @Test func warningOnlyAboveExpectedPlusTheMargin() {
+        // 20 %/h on the 5-hour window: one hour in, 20 % is on pace and 25 % is the edge of the margin (#82).
         #expect(session(20, elapsed: hour).reading(now: now) == .normal)
-        #expect(session(19, elapsed: hour).reading(now: now) == .normal)
-        #expect(session(21, elapsed: hour).reading(now: now) == .warning)
+        #expect(session(21, elapsed: hour).reading(now: now) == .normal)
+        #expect(session(24.9, elapsed: hour).reading(now: now) == .normal)
+        #expect(session(25, elapsed: hour).reading(now: now) == .normal)
+        #expect(session(25.1, elapsed: hour).reading(now: now) == .warning)
         #expect(session(30, elapsed: hour).reading(now: now) == .warning)
     }
 
-    @Test func startOfWindow() {
+    @Test func startOfWindowWithSmallUsageStaysGreen() {
         #expect(session(0, elapsed: 0).reading(now: now) == .normal)
-        #expect(session(1, elapsed: 0).reading(now: now) == .warning)
+        #expect(session(1, elapsed: 0).reading(now: now) == .normal)
+        #expect(session(5, elapsed: 0).reading(now: now) == .normal)
+        #expect(session(5.1, elapsed: 0).reading(now: now) == .warning)
+        // Six minutes in, 2 % is expected: 3 % (the case of #82) stays green, 7 % is the edge.
+        #expect(session(3, elapsed: 360).reading(now: now) == .normal)
+        #expect(session(7, elapsed: 360).reading(now: now) == .normal)
+        #expect(session(7.5, elapsed: 360).reading(now: now) == .warning)
     }
 
     @Test func ninetyPercentIsCriticalWhateverThePace() {
         // One minute before the reset, 89.9 % is well under pace.
         #expect(session(89.9, elapsed: UsageWindow.session - 60).reading(now: now) == .normal)
         #expect(session(90, elapsed: UsageWindow.session - 60).reading(now: now) == .critical)
+        #expect(session(90, elapsed: 0).reading(now: now) == .critical)
         #expect(session(120, elapsed: hour).reading(now: now) == .critical)
     }
 
     @Test func weeklyWindow() {
         let halfway = now + UsageWindow.weekly / 2
-        #expect(
-            UsageLimit(percent: 50, severity: .normal, resetsAt: halfway, window: UsageWindow.weekly)
-                .reading(now: now) == .normal)
-        #expect(
-            UsageLimit(percent: 51, severity: .normal, resetsAt: halfway, window: UsageWindow.weekly)
-                .reading(now: now) == .warning)
+        func weekly(_ percent: Double) -> UsageSeverity {
+            UsageLimit(percent: percent, severity: .normal, resetsAt: halfway, window: UsageWindow.weekly)
+                .reading(now: now)
+        }
+        #expect(weekly(50) == .normal)
+        #expect(weekly(55) == .normal)
+        #expect(weekly(55.5) == .warning)
     }
 
     @Test func noResetTimeMeansNoPace() {
@@ -143,7 +157,8 @@ import Testing
         // Clock skew: the window has not started by the local clock.
         let early = session(5, elapsed: -600)
         #expect(early.expectedPercent(now: now) == 0)
-        #expect(early.reading(now: now) == .warning)
+        #expect(early.reading(now: now) == .normal)
+        #expect(session(6, elapsed: -600).reading(now: now) == .warning)
     }
 
     @Test func serverSeverityIsAFloor() {
@@ -157,7 +172,7 @@ import Testing
     private let now = ClaudeFixtures.fetchedAt
 
     @Test func spokenSaysThePaceInWords() {
-        // One hour into the window, 20 % is on pace: 26 % is above.
+        // One hour into the window, 20 % is on pace: 26 % is above, past the 5-point margin.
         let ahead = UsageLimit(percent: 26, severity: .normal, resetsAt: now + 4 * 3600, window: UsageWindow.session)
         #expect(
             UsageText.spoken("5-hour quota", ahead, now: now) == "5-hour quota, 26 %, above pace, resets in 4 hours")
