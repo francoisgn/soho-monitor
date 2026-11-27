@@ -46,13 +46,16 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
 
 <p align="center"><img src="docs/images/disk-card.png" alt="Disk card" width="420"></p>
 
-- **Card**: volume name, "X of Y used", free-space pill (orange / red under the configured thresholds), one
+- **Card**: the CPU and memory cards' header (icon, "Disk", share of the disk used as the large figure; the volume
+  name is read by VoiceOver), "X of Y used", free-space pill (orange / red under the configured thresholds), one
   continuous segmented bar (groups by size, `macOS` and `Other` last), legend chips with their size and ⚠︎ when a
-  group was measured partially. Hover a segment or a chip for the detail of its categories; click a chip for the
-  group's three biggest folders (name, path, size, gauge). Drag any card to move the panel, double-click one to put
-  it back in its default place: the top-left corner of the main screen, under the menu bar. The panel hangs from its
-  top-left corner (the one remembered), so it grows downward as cards are added or expand, and it is kept inside the
-  screen (a panel taller than the screen keeps its top visible).
+  group was measured partially. The legend shows the three biggest configured groups (`macOS` and `Other` only when
+  fewer are configured); "+N more" unfolds every chip until "Less" or until the panel is hidden. Hover a segment
+  (free space included) or a chip to highlight it and read its name, size and share of the bar in place of "X of Y
+  used"; click a chip for the group's three biggest folders (name, path, size, gauge). Drag any card to move the
+  panel, double-click one to put it back in its default place: the top-left corner of the main screen, under the menu
+  bar. The panel hangs from its top-left corner (the one remembered), so it grows downward as cards are added or
+  expand, and it is kept inside the screen (a panel taller than the screen keeps its top visible).
 - **Menu**: summary line ("Macintosh HD: 183.9 GB free of 494.4 GB"), last update or "Scanning…", configuration or
   scan errors, Show / Hide Panel, Rescan Now, Quit.
 - **Scan**: every configured path is measured with `du -k -d 1` (one pass gives its size and its direct

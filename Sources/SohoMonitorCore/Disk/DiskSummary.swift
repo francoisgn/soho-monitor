@@ -138,6 +138,11 @@ public enum DiskSummary {
         max(snapshot.total, groups.reduce(0) { $0 + $1.bytes } + snapshot.free)
     }
 
+    /// The card's large figure, as on the CPU and memory cards; nil without a disk size (the card shows a dash).
+    public static func usedFraction(of snapshot: DiskSnapshot) -> Double? {
+        snapshot.total > 0 ? Double(snapshot.used) / Double(snapshot.total) : nil
+    }
+
     /// Menu bar summary line.
     public static func menuLine(of snapshot: DiskSnapshot) -> String {
         "\(snapshot.volume): \(ByteFormat.short(snapshot.free)) free of \(ByteFormat.short(snapshot.total))"

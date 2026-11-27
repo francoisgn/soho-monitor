@@ -1,35 +1,44 @@
 import SohoMonitorCore
 import SwiftUI
 
-/// The disk card: volume, used / total, free-space pill, one continuous segmented bar, legend chips, the top 3
+/// The disk card: header (icon, "Disk", used share), used / total, free-space pill, one continuous segmented bar, legend chips, the top 3
 /// folders of the selected group, and the scan status. Native Liquid Glass (macOS 26).
+/// Hovering the bar or a chip highlights that segment and puts its name, size and share in the header; the legend
+/// shows the biggest groups only, a chip unfolds the rest until the panel is hidden.
 struct DiskCard: View {
     static let width: CGFloat = 420
+    /// Chips shown while the legend is folded.
+    static let compactLegendCount = 3
 
     let model: AppModel
     let onDrag: (DesktopPanelController.DragPhase) -> Void
     let onResetPosition: () -> Void
 
     @State private var openGroup: String?
-    @State private var hoveredGroup: String?
+    /// One hover state for the bar and the chips, so both highlight the same segment.
+    @State private var hovered: BarSegment.Kind?
+    /// Not persisted: folded again whenever the panel is hidden.
+    @State private var legendExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let snapshot = model.snapshot {
                 let groups = DiskSummary.groups(of: snapshot)
-                header(snapshot)
-                SegmentedBar(
-                    groups: groups, scale: DiskSummary.barScale(of: snapshot, groups: groups),
-                    hovered: $hoveredGroup)
-                legend(groups)
-                if let name = hoveredGroup, let group = groups.first(where: { $0.name == name }) {
-                    HoverDetail(group: group)
+                let scale = DiskSummary.barScale(of: snapshot, groups: groups)
+                let hoverText = hovered.flatMap {
+                    DiskBar.summary(of: $0, groups: groups, free: snapshot.free, scale: scale)
                 }
+                header(snapshot, hoverText: hoverText, groups: groups)
+                SegmentedBar(groups: groups, free: snapshot.free, scale: scale, hovered: $hovered)
+                legend(groups)
                 if let name = openGroup, let group = groups.first(where: { $0.name == name }) {
                     TopFolders(group: group, tops: snapshot.tops.filter { $0.group == name })
                 }
             } else {
-                Text("Disk").font(.system(size: 15, weight: .semibold))
+                MetricHeader(symbol: "internaldrive", title: "Disk", figure: "—", tint: CardColor.disk, compact: true)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Disk")
+                    .accessibilityValue("unavailable")
                 Text(model.isScanning ? "First scan in progress…" : "No disk data yet")
                     .font(.callout).foregroundStyle(.secondary)
             }
@@ -54,19 +63,53 @@ struct DiskCard: View {
                 .onEnded { _ in onDrag(.ended) }
         )
         .padding(12)  // room for the glass's own shadow inside the transparent panel
+        .onChange(of: model.panelVisible) { _, visible in
+            guard !visible else { return }
+            legendExpanded = false
+            hovered = nil  // no hover end arrives once the panel is ordered out
+        }
+        // A new snapshot may drop the hovered group (and bring it back later): start again from the next move.
+        .onChange(of: model.snapshot?.updated) { hovered = nil }
     }
 
-    private func header(_ snapshot: DiskSnapshot) -> some View {
-        HStack(alignment: .lastTextBaseline) {
+    /// The CPU and memory cards' header (icon, "Disk", used share as the large figure), then "X of Y used" and the
+    /// free-space pill. While a segment is hovered, its line replaces "X of Y used"; both stay in the layout (one
+    /// hidden) so the card keeps its size. The volume name is not shown, to keep the system cards' header (operator
+    /// request, #69); VoiceOver reads it, and the menu bar line still shows it.
+    private func header(_ snapshot: DiskSnapshot, hoverText: String?, groups: [DiskGroup]) -> some View {
+        let figure = PercentFormat.whole(DiskSummary.usedFraction(of: snapshot))
+        return VStack(alignment: .leading, spacing: 6) {
+            MetricHeader(symbol: "internaldrive", title: "Disk", figure: figure, tint: CardColor.disk, compact: true)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Disk, \(snapshot.volume.isEmpty ? "startup disk" : snapshot.volume)")
+                .accessibilityValue("\(figure) used")
+            usageLine(snapshot, hoverText: hoverText, groups: groups)
+        }
+    }
+
+    private func usageLine(_ snapshot: DiskSnapshot, hoverText: String?, groups: [DiskGroup]) -> some View {
+        HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(snapshot.volume.isEmpty ? "Startup disk" : snapshot.volume)
-                    .font(.system(size: 15, weight: .semibold))
                 let used = Text(ByteFormat.short(snapshot.used))
                     .font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
-                Text("\(used) of \(ByteFormat.short(snapshot.total)) used")
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                ZStack(alignment: .leading) {
+                    Text("\(used) of \(ByteFormat.short(snapshot.total)) used")
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .opacity(hoverText == nil ? 1 : 0)
+                    if let hoverText, let hovered {
+                        HStack(spacing: 5) {
+                            SegmentDot(kind: hovered, groups: groups)
+                            Text(hoverText)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                        }
+                        .accessibilityHidden(true)  // VoiceOver reads the same from the bar's segments
+                    }
+                }
             }
             Spacer()
             Text("\(ByteFormat.short(snapshot.free)) free")
@@ -79,13 +122,26 @@ struct DiskCard: View {
         }
     }
 
+    /// Folded: the biggest groups (and the open one) then a "+N more" chip; unfolded: every group then "Less".
+    /// Changes that resize the panel are not animated: an animated window resize of the desktop panel crashed the app
+    /// (stack overflow in Auto Layout, reproduced on main by opening a chip).
     private func legend(_ groups: [DiskGroup]) -> some View {
-        FlowLayout(spacing: 6, lineSpacing: 5) {
-            ForEach(groups) { group in
+        let compact = DiskSummary.compactLegend(groups, limit: Self.compactLegendCount, keeping: openGroup)
+        return FlowLayout(spacing: 6, lineSpacing: 5) {
+            ForEach(legendExpanded ? groups : compact.shown) { group in
                 LegendChip(group: group, selected: openGroup == group.name) {
-                    withAnimation(.snappy) { openGroup = openGroup == group.name ? nil : group.name }
+                    openGroup = openGroup == group.name ? nil : group.name
                 }
-                .onHover { hoveredGroup = $0 ? group.name : (hoveredGroup == group.name ? nil : hoveredGroup) }
+                .onPointer { point in
+                    let kind = BarSegment.Kind.group(group.name)
+                    hovered = point != nil ? kind : (hovered == kind ? nil : hovered)
+                }
+            }
+            if compact.hiddenCount > 0 {
+                LegendToggle(expanded: legendExpanded, hiddenCount: compact.hiddenCount) {
+                    legendExpanded.toggle()
+                    hovered = nil  // a chip folded away under the pointer sends no exit
+                }
             }
         }
     }
@@ -135,28 +191,36 @@ enum Palette {
     }
 }
 
-/// One continuous glass capsule: adjoining segments split by a hairline, a single gloss over the whole bar.
+/// One continuous glass capsule: adjoining segments split by a hairline, a single gloss over the whole bar. Drawn from
+/// `DiskBar.layout`, which the hover test reads too, so the highlighted segment is the one under the pointer.
 private struct SegmentedBar: View {
     let groups: [DiskGroup]
+    let free: Int64
     let scale: Int64
-    @Binding var hovered: String?
+    @Binding var hovered: BarSegment.Kind?
 
     var body: some View {
         GeometryReader { proxy in
-            HStack(spacing: 0) {
-                ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
-                    Rectangle()
-                        .fill(Palette.color(group.colorSlot).gradient)
-                        .frame(width: max(3, proxy.size.width * fraction(group.bytes)))
+            let segments = DiskBar.layout(groups: groups, free: free, scale: scale, width: proxy.size.width)
+            // A hover left over from a group gone after a rescan dims nothing.
+            let lit = segments.contains { $0.kind == hovered } ? hovered : nil
+            ZStack(alignment: .leading) {
+                ForEach(segments, id: \.kind) { segment in
+                    fill(segment)
+                        .frame(width: segment.width)
                         .overlay(alignment: .leading) {
-                            if index > 0 { Rectangle().fill(.black.opacity(0.35)).frame(width: 1) }
+                            if segment.start > 0 { Rectangle().fill(.black.opacity(0.35)).frame(width: 1) }
                         }
-                        .opacity(hovered == nil || hovered == group.name ? 1 : 0.55)
-                        .onHover { hovered = $0 ? group.name : (hovered == group.name ? nil : hovered) }
-                        .help(group.detail)
+                        .opacity(lit == nil || lit == segment.kind ? 1 : 0.55)
+                        .offset(x: segment.start)
+                        .accessibilityElement()
+                        .accessibilityLabel(segment.name)
+                        .accessibilityValue(
+                            "\(ByteFormat.short(segment.bytes)), \(DiskBar.share(segment.bytes, of: scale))")
                 }
-                Spacer(minLength: 0)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+            .onPointer { point in hovered = point.flatMap { DiskBar.segment(at: $0.x, in: segments)?.kind } }
         }
         .frame(height: 14)
         .background(.black.opacity(0.18))
@@ -172,10 +236,63 @@ private struct SegmentedBar: View {
         .clipShape(.capsule)
         .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
         .animation(.smooth, value: hovered)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Disk usage")
     }
 
-    private func fraction(_ bytes: Int64) -> CGFloat {
-        scale > 0 ? CGFloat(Double(bytes) / Double(scale)) : 0
+    /// A group in its colour; the free space is the bare track, lit while hovered.
+    @ViewBuilder private func fill(_ segment: BarSegment) -> some View {
+        switch segment.kind {
+        case .group(let name):
+            Rectangle().fill(Palette.color(colorSlot(of: name, in: groups)).gradient)
+        case .free:
+            Rectangle().fill(.white.opacity(hovered == .free ? 0.22 : 0))
+        }
+    }
+}
+
+private func colorSlot(of name: String, in groups: [DiskGroup]) -> ColorSlot {
+    groups.first(where: { $0.name == name })?.colorSlot ?? .other
+}
+
+/// The colour of the hovered segment, before its line in the header; a ring for the free space.
+private struct SegmentDot: View {
+    let kind: BarSegment.Kind
+    let groups: [DiskGroup]
+
+    var body: some View {
+        switch kind {
+        case .group(let name):
+            Circle().fill(Palette.color(colorSlot(of: name, in: groups)).gradient).frame(width: 8, height: 8)
+        case .free:
+            Circle().strokeBorder(.secondary, lineWidth: 1.5).frame(width: 8, height: 8)
+        }
+    }
+}
+
+/// "+N more" while folded, "Less" while unfolded; a chip like the others so it reads as part of the legend.
+private struct LegendToggle: View {
+    let expanded: Bool
+    let hiddenCount: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(expanded ? "Less" : "+\(hiddenCount) more")
+                Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 8.5, weight: .bold))
+            }
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .accessibilityLabel(expanded ? "Show fewer categories" : "Show \(hiddenCount) more categories")
+        .help(expanded ? "Show the biggest categories only" : "Show every category")
     }
 }
 
@@ -216,19 +333,6 @@ private struct LegendChip: View {
             selected ? .regular.tint(.white.opacity(0.18)).interactive() : .regular.interactive(), in: .capsule
         )
         .help(group.detail)
-    }
-}
-
-private struct HoverDetail: View {
-    let group: DiskGroup
-
-    var body: some View {
-        Text(group.detail)
-            .font(.system(size: 11, weight: .medium, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .transition(.opacity)
     }
 }
 
