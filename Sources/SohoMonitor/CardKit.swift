@@ -290,6 +290,11 @@ private struct PointerTracker: NSViewRepresentable {
 struct PillRow: View {
     var pills: [InfoPill]
 
+    /// Extra gap, on top of the card's row spacing, between a pill row and a row of text next to it: the glass edge
+    /// refracts what lies just outside it, so text 7 pt away showed as ghost text inside the pill (#90; renders from
+    /// the NAS fixtures: ghost up to +3 pt, faint at +5 pt, none from +8 pt).
+    static let textClearance: CGFloat = 8
+
     var body: some View {
         FlowLayout(spacing: 5, lineSpacing: 5) {
             ForEach(Array(pills.enumerated()), id: \.offset) { _, pill in pill }

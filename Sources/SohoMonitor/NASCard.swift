@@ -25,7 +25,9 @@ struct NASCard: View {
                 NASDetails(snapshot: snapshot, host: config.host).opacity(0.5)
                 NASStatusLine(
                     text: "Data from \(RelativeAge.string(from: since, now: now)): \(reason)",
-                    level: .warning)
+                    level: .warning
+                )
+                .padding(.top, NASDetails.endsWithPills(snapshot) ? PillRow.textClearance : 0)
                 // A changed pin with data still shown: the fingerprint to check, at once.
                 if let presented = tlsFailure?.presented { FingerprintRow(fingerprint: presented) }
             case .loading:
@@ -54,8 +56,15 @@ struct NASCard: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(CardColor.warning)
                     .lineLimit(2)
+                    .padding(.top, pillsLast ? PillRow.textClearance : 0)
             }
         }
+    }
+
+    /// The card's last row so far is a pill row: what follows keeps clear of the glass.
+    private var pillsLast: Bool {
+        if case .ok(let snapshot, _) = state { return NASDetails.endsWithPills(snapshot) }
+        return false
     }
 
     private func header(figure: String) -> some View {
@@ -95,8 +104,12 @@ private struct NASDetails: View {
             ContainerGrid(list: list)
         }
         let pills = Self.pills(snapshot)
-        if !pills.isEmpty { PillRow(pills: pills) }
+        // Always under a row of text (containers, load or hardware line): kept clear of the glass edge.
+        if !pills.isEmpty { PillRow(pills: pills).padding(.top, PillRow.textClearance) }
     }
+
+    /// The details end with a pill row (DSM update or an unreadable section).
+    static func endsWithPills(_ snapshot: NASSnapshot) -> Bool { !pills(snapshot).isEmpty }
 
     /// "DS416play · DSM 7.1.1 · 54 °C · up 77 d 8 h": model, version, temperature (orange when DSM warns), uptime.
     @ViewBuilder private var identity: some View {
