@@ -14,7 +14,7 @@
 > memory and network, and the services around the Mac (Synology NAS, UniFi network, Claude plan usage), in a
 > menu bar extra and a movable Liquid Glass desktop panel.
 
-![SoHo Monitor: CPU, memory, disk and Claude plan usage cards on the desktop panel](docs/images/social-preview.png)
+![SoHo Monitor: CPU, memory, disk, Claude plan usage and NAS cards on the desktop panel](docs/images/social-preview.png)
 
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
 widget (shell + JSX) with real glass and live sampling; the only helper is a small Node script for the Claude card
@@ -216,7 +216,7 @@ saved password); then it shows the NAS's data:
 
 ## Architecture
 
-<p align="center"><img src="docs/diagrams/architecture.svg" alt="Architecture: config.yaml (polled every 2 s), the disk-snapshot.json cache, macOS (Mach, sysctl, pressure events), the Node helper and the Synology NAS (DSM Web API over HTTPS, login test) feed the five modules of SohoMonitorCore (Config, Disk, System, Claude usage, Synology: DSM login, per-host TLS policy, password in the Keychain), a Swift library with no UI; the SwiftUI app's models (AppModel, SystemModel, ClaudeUsageModel, SynologyModel) drive the menu bar extra and the desktop panel (CPU, memory, disk, Claude and Synology cards). Planned: Synology data cards and the UniFi module, with secrets in the Keychain and calls only to configured hosts." width="100%"></p>
+<p align="center"><img src="docs/diagrams/architecture.svg" alt="Architecture: config.yaml (polled every 2 s), the disk-snapshot.json cache, macOS (Mach, sysctl, pressure events), the Node helper and the Synology NAS (DSM Web API over HTTPS, login and polling) feed the five modules of SohoMonitorCore (Config, Disk, System, Claude usage, Synology: NASFetcher with the storage, system, update and Docker parsers, polled only while the panel is visible, demo replay of the test fixtures), a Swift library with no UI; the SwiftUI app's models (AppModel, SystemModel, ClaudeUsageModel, SynologyModel) drive the menu bar extra and the desktop panel (CPU, memory, disk, Claude and NAS cards). Planned: the UniFi module, with secrets in the Keychain and calls only to configured hosts." width="100%"></p>
 <sub>Source: <a href="docs/diagrams/architecture.excalidraw">architecture.excalidraw</a> (excalidraw.com › Open). Diagrams are exported to SVG by
 <code>scripts/export-diagrams.sh</code> (Excalidraw's own export, font embedded).</sub>
 
