@@ -1,7 +1,7 @@
 import Foundation
 
-/// A DSM health string (volume, storage pool or disk `status`). `normal` and `attention` are the values recorded on a
-/// DS416play (DSM 7.1.1, 2026-11-27); `degraded` and `crashed` are the states DSM's Storage Manager names, not seen on
+/// A DSM health string (volume, storage pool or disk `status`). `normal` and `attention` are the values recorded on
+/// a real NAS (DSM 7.1.1, 2026-11-27); `degraded` and `crashed` are the states DSM's Storage Manager names, not seen on
 /// the device yet. Anything else is kept verbatim and never shown as healthy.
 public enum NASHealth: Sendable, Equatable, Hashable {
     case normal

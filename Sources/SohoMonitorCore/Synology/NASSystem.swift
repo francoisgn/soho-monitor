@@ -1,7 +1,7 @@
 import Foundation
 
 /// Load and identity of the NAS: `SYNO.Core.System.Utilization` `get` v1 (CPU, memory, disk activity) and, optional,
-/// `SYNO.Core.System` `info` v1 (model, DSM version, temperature, uptime). Fields as recorded on a DS416play (DSM
+/// `SYNO.Core.System` `info` v1 (model, DSM version, temperature, uptime). Fields as recorded on a real NAS (DSM
 /// 7.1.1, 2026-11-27); percentages are whole numbers from 0 to 100 there, stored here as fractions.
 public struct NASSystem: Sendable, Equatable {
     /// `cpu.user_load + system_load + other_load`, as py-synologydsm-api's `cpu_total_load` adds them

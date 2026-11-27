@@ -170,7 +170,7 @@ final class GatedLoginTransport: HTTPTransport {
         #expect(login["passwd"] == "pw&=+ %")
         #expect(login["session"] == "soho-monitor")
         #expect(login["format"] == "sid")
-        // A DS416play took 3.8 s to answer a v6 login (29 s for v7): longer than the 10 s of other calls, so login
+        // The recorded NAS took 3.8 s to answer a v6 login (29 s for v7): longer than the 10 s of other calls, so login
         // waits longer; the other calls keep the transport's default.
         #expect(login.timeout == DSMClient.loginTimeout)
         #expect(DSMClient.loginTimeout >= 30)
