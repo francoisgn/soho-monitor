@@ -3,7 +3,7 @@ import Testing
 
 @testable import SohoMonitorCore
 
-/// Anonymised responses of a real DS416play (DSM 7.1.1), recorded on 2026-11-27: identifying values replaced, Docker
+/// Anonymised responses of a real NAS (DSM 7.1.1), recorded on 2026-11-27: identifying values replaced, Docker
 /// command lines and health-check output dropped (`Fixtures/Synology`).
 enum NASFixtures {
     static func text(_ name: String) throws -> String {
@@ -151,7 +151,7 @@ enum NASFixtures {
     @Test func infoAddsModelVersionTemperatureAndUptime() throws {
         let system = try NASSystem.decode(
             utilization: NASFixtures.data(NASFixtures.utilization), info: NASFixtures.data(NASFixtures.info))
-        #expect(system.model == "DS416play")
+        #expect(system.model == "DS-demo")
         #expect(system.dsmVersion == "DSM 7.1.1-42962 Update 9")
         #expect(system.temperature == 54)
         #expect(system.temperatureWarning == false)

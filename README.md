@@ -137,8 +137,10 @@ Two glass cards above the disk card on the desktop panel:
 
 A second card in the desktop panel, shown when the configuration lists Claude Code profiles:
 
-<p align="center"><img src="docs/images/claude-card.png" alt="Claude card" width="420"></p>
+<p align="center"><img src="docs/images/claude-card.png" alt="Claude card: sparkle icon and title; profiles Work (Max) and Personal (Team), each with a weekly bar, then 5-hour and per-model rings with percent and reset time" width="420"></p>
 
+- **Header**: the other cards' icon in a tinted circle (SF Symbol `sparkle`, purple as the Claude gauge of the app
+  icon) and the title; a small spinner while it refreshes.
 - **Per profile**, in configuration order: its label and plan, a bar with the **weekly** limit (all models), its
   percent and reset; below, one line per other limit, two side by side: the **5-hour session** and each
   **per-model weekly** limit (e.g. Fable), as a small ring, the percent, the name and the time to the reset. Reset
@@ -178,7 +180,7 @@ The NAS card, shown when the configuration has a `synology:` section. Until a pa
 **Set Up…** (credential window: type the password, test the connection, save it in the Keychain) and **Test** (the
 saved password); then it shows the NAS's data:
 
-<p align="center"><img src="docs/images/nas-card.png" alt="NAS card: 90 % used, DS416play, DSM 7.1.1, 54 °C, up 77 days, 792.6 GB free; volume bar 6.88 TB of 7.67 TB; volume almost full and pool attention dots; CPU 79 %, RAM 31 %, disk 59 %; containers 6/6 running; DSM update badge" width="420"></p>
+<p align="center"><img src="docs/images/nas-card.png" alt="NAS card: 90 % used, DS-demo, DSM 7.1.1, 54 °C, up 77 days, 792.6 GB free; volume bar 6.88 TB of 7.67 TB; volume almost full and pool attention dots; CPU 79 %, RAM 31 %, disk 59 %; containers 6/6 running; DSM update badge" width="420"></p>
 <sub>Rendered from the anonymised test fixtures (`Tests/SohoMonitorCoreTests/Fixtures/Synology`), not a live NAS.</sub>
 
 - **Storage**: the first volume's used share as the large figure, its free space just under it; one bar per volume,

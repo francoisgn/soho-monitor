@@ -117,7 +117,7 @@ private struct NASDetails: View {
     /// The details end with a pill row (DSM update or an unreadable section).
     static func endsWithPills(_ snapshot: NASSnapshot) -> Bool { !pills(snapshot).isEmpty }
 
-    /// "DS416play · DSM 7.1.1 · 54 °C · up 77 d 8 h": model, version, system temperature (orange when DSM warns),
+    /// "DS-demo · DSM 7.1.1 · 54 °C · up 77 d 8 h": model, version, system temperature (orange when DSM warns),
     /// uptime. The card's only temperature (the disks' are not shown).
     @ViewBuilder private var identity: some View {
         let system = snapshot.system.value
