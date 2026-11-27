@@ -1,7 +1,7 @@
 import Foundation
 
-/// One form POST. Its descriptions show the method and path only: the fields may hold a password or a session id,
-/// so a request can be logged or printed in a test failure without leaking them.
+/// One form POST. Its descriptions show the method and path only: the fields and headers may hold a password, a
+/// session id or a token, so a request can be logged or printed in a test failure without leaking them.
 public struct HTTPRequest: Sendable, CustomStringConvertible, CustomDebugStringConvertible {
     public var url: URL
     public var method = "POST"
@@ -9,6 +9,8 @@ public struct HTTPRequest: Sendable, CustomStringConvertible, CustomDebugStringC
     public var fields: [(name: String, value: String)]
     /// Seconds to wait for this request instead of the transport's default (a slow login).
     public var timeout: TimeInterval?
+    /// Extra request headers, in order (a CSRF token); never part of the descriptions.
+    public var headers: [(name: String, value: String)] = []
 
     public init(url: URL, fields: [(String, String)]) {
         self.url = url
@@ -18,6 +20,17 @@ public struct HTTPRequest: Sendable, CustomStringConvertible, CustomDebugStringC
     /// The value of the first field with this name.
     public subscript(name: String) -> String? {
         fields.first { $0.name == name }?.value
+    }
+
+    /// The value of the first header with this name; HTTP header names are case-insensitive (RFC 9110 §5.1), and
+    /// surrounding spaces are ignored (L33).
+    public func header(_ name: String) -> String? {
+        let wanted = Self.normalized(name)
+        return headers.first { Self.normalized($0.name) == wanted }?.value
+    }
+
+    private static func normalized(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespaces).lowercased()
     }
 
     public var body: Data { Self.formBody(fields.map { ($0.name, $0.value) }) }
@@ -119,6 +132,7 @@ public final class URLSessionTransport: HTTPTransport {
         urlRequest.httpMethod = request.method
         urlRequest.httpShouldHandleCookies = false
         urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        for header in request.headers { urlRequest.setValue(header.value, forHTTPHeaderField: header.name) }
         urlRequest.httpBody = request.body
         return urlRequest
     }
