@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds SohoMonitor in release mode and assembles a menu-bar .app bundle (no Dock icon),
-# signed ad hoc (or with $CODESIGN_IDENTITY). Output: build/SohoMonitor.app.
+# signed with $CODESIGN_IDENTITY, else the first "Apple Development" identity of the keychain, else ad hoc.
+# A certificate signature keeps the designated requirement stable across builds, so privacy grants
+# (Full Disk Access) survive a rebuild; an ad hoc one is tied to the binary's hash. Output: build/SohoMonitor.app.
 # Usage: scripts/bundle-app.sh [--install]   --install also copies it to ~/Applications.
 # macOS only (swift, codesign, plutil).
 set -euo pipefail
@@ -43,14 +45,22 @@ cat >"$app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 plutil -lint "$app/Contents/Info.plist" >/dev/null || ko "invalid Info.plist"
-codesign --force --sign "${CODESIGN_IDENTITY:--}" --identifier com.francoisgn.soho-monitor "$app" >/dev/null 2>&1 ||
+# Identity by SHA-1 hash: its name carries the developer's e-mail, which must not reach logs.
+identity="${CODESIGN_IDENTITY:-}"
+if [ -z "$identity" ]; then
+  identity="$(security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development: / { print $2; exit }')"
+fi
+codesign --force --sign "${identity:--}" --identifier com.francoisgn.soho-monitor "$app" >/dev/null 2>&1 ||
   ko "codesign failed"
-ok "$app ($version)"
+if [ -n "$identity" ]; then signature="certificate"; else signature="ad hoc"; fi
+ok "$app ($version, $signature signature)"
 
 if $install; then
   mkdir -p "$HOME/Applications"
   rm -rf "$HOME/Applications/SohoMonitor.app"
   cp -R "$app" "$HOME/Applications/"
   ok "installed in ~/Applications/SohoMonitor.app"
-  warn "an ad hoc signature changes at every build: Full Disk Access must be granted again"
+  if [ -z "$identity" ]; then
+    warn "ad hoc signature: it changes at every build, Full Disk Access must be granted again"
+  fi
 fi
