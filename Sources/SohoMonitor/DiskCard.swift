@@ -65,6 +65,8 @@ struct DiskCard: View {
             legendExpanded = false
             hovered = nil  // no hover end arrives once the panel is ordered out
         }
+        // A new snapshot may drop the hovered group (and bring it back later): start again from the next move.
+        .onChange(of: model.snapshot?.updated) { hovered = nil }
     }
 
     /// While a segment is hovered, its line replaces "X of Y used"; both stay in the layout (one hidden) so the card
