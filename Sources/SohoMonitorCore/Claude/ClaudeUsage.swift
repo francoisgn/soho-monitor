@@ -1,25 +1,86 @@
 import Foundation
 
-/// The server's reading of a row, for its colour. The client never grades a row itself (ADR 0001).
-public enum UsageSeverity: String, Sendable, Equatable {
+/// The reading of a row, for its colour: the server's `severity`, raised by the client's pace reading
+/// (`UsageLimit.reading(now:)`, ADR 0001, amended by #78).
+public enum UsageSeverity: String, Sendable, Equatable, Comparable {
     case normal, warning, critical
 
     /// An unknown or missing value is shown as normal: a new server grade must not turn the card red.
     public init(server: String?) {
         self = server.flatMap(UsageSeverity.init(rawValue:)) ?? .normal
     }
+
+    private var rank: Int {
+        switch self {
+        case .normal: 0
+        case .warning: 1
+        case .critical: 2
+        }
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rank < rhs.rank }
 }
 
-/// One plan limit: share used, the server's severity, when the window resets.
+/// Window lengths per row kind, **inferred**: a `limits[]` row has no length field, and the server sends `resets_at`
+/// only, so a window starts one length before it. Basis: `sdk.d.ts` of `@anthropic-ai/claude-agent-sdk` 0.3.332 (the
+/// pinned version): `usage_EXPERIMENTAL_…` returns "plan rate-limit utilization windows (5-hour, 7-day, per-model)",
+/// and its legacy `five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet` fields put the per-model windows at
+/// 7 days (ADR 0001). An unknown kind gets no length, hence no pace reading.
+public enum UsageWindow {
+    /// `session`: 5 hours.
+    public static let session: TimeInterval = 5 * 3600
+    /// `weekly_all` and `weekly_scoped`: 7 days.
+    public static let weekly: TimeInterval = 7 * 86400
+
+    /// The length for a row kind; nil for a kind of unknown length (no pace reading).
+    public static func length(ofKind kind: String) -> TimeInterval? {
+        switch kind {
+        case "session": session
+        case "weekly_all", "weekly_scoped": weekly
+        default: nil
+        }
+    }
+}
+
+/// One plan limit: share used, the server's severity, when the window resets, how long the window is.
 public struct UsageLimit: Sendable, Equatable {
     public var percent: Double
     public var severity: UsageSeverity
     public var resetsAt: Date?
+    /// From the row's kind (`UsageWindow`); nil when unknown: no pace reading.
+    public var window: TimeInterval?
 
-    public init(percent: Double, severity: UsageSeverity, resetsAt: Date?) {
+    public init(percent: Double, severity: UsageSeverity, resetsAt: Date?, window: TimeInterval? = nil) {
         self.percent = percent
         self.severity = severity
         self.resetsAt = resetsAt
+        self.window = window
+    }
+
+    /// Used share at or above which a row is critical, whatever the pace (operator request, #78).
+    public static let criticalPercent: Double = 90
+
+    /// Share of the window elapsed at `now`, 0 to 100: what a steady pace would have used (5 hours: 20 % an hour).
+    /// Nil without a reset time or a window length. A clock past the reset reads 100; a reset more than one window
+    /// away (clock skew) reads 0.
+    public func expectedPercent(now: Date) -> Double? {
+        guard let resetsAt, let window, window > 0 else { return nil }
+        let elapsed = min(window, max(0, window - resetsAt.timeIntervalSince(now)))
+        return elapsed * 100 / window
+    }
+
+    /// The colour reading: critical at 90 % or more; warning when used faster than the window's pace; normal
+    /// otherwise. Never milder than the server's `severity`.
+    public func reading(now: Date) -> UsageSeverity {
+        let pace: UsageSeverity
+        if percent >= Self.criticalPercent {
+            pace = .critical
+        } else if let expected = expectedPercent(now: now), percent > expected {
+            pace = .warning
+        } else {
+            pace = .normal
+        }
+        return max(pace, severity)
     }
 
     /// Share of a bar or a donut, 0 to 1 (the server may report more than 100 % after an overage).
@@ -119,7 +180,8 @@ public enum ClaudeUsageParser {
         }
         var usage = ClaudeUsage(plan: plan, session: nil, weekly: nil, models: [], fetchedAt: fetchedAt)
         for case let row as [String: Any] in rows {
-            guard let kind = row["kind"] as? String, let limit = limit(row) else { continue }
+            guard let kind = row["kind"] as? String, var limit = limit(row) else { continue }
+            limit.window = UsageWindow.length(ofKind: kind)
             switch kind {
             case "session" where usage.session == nil:
                 usage.session = limit
@@ -196,25 +258,59 @@ public struct ClaudeAccountState: Sendable, Equatable {
 
 /// Figures of the card.
 public enum ResetFormat {
-    /// `in 2h 10m`, `in 45m`, `in 2d 14h`; a reset in the past (clock skew, late refresh) reads `reset`.
-    public static func relative(_ date: Date?, now: Date) -> String {
+    /// Compact time to the reset, minutes rounded up: `44m`, `3h05`, `3h`, `2d12h`, `2d`. A reset in the past (clock
+    /// skew, late refresh) reads `now`; an unknown one `–`.
+    public static func short(_ date: Date?, now: Date) -> String {
+        guard let date else { return "–" }
+        guard let (days, hours, minutes) = parts(date, now: now) else { return "now" }
+        if days > 0 { return hours == 0 ? "\(days)d" : "\(days)d\(hours)h" }
+        if hours > 0 { return minutes == 0 ? "\(hours)h" : "\(hours)h" + (minutes < 10 ? "0" : "") + "\(minutes)" }
+        return "\(minutes)m"
+    }
+
+    /// The same, spelt out for VoiceOver: `resets in 3 hours 5 minutes`, `resets now`, `no reset time`.
+    public static func spoken(_ date: Date?, now: Date) -> String {
         guard let date else { return "no reset time" }
-        let seconds = date.timeIntervalSince(now)
-        guard seconds > 0 else { return "reset" }
-        let minutes = max(1, Int((seconds / 60).rounded(.up)))
-        if minutes < 60 { return "in \(minutes)m" }
-        let hours = minutes / 60
-        if hours < 24 {
-            let rest = minutes % 60
-            return rest == 0 ? "in \(hours)h" : "in \(hours)h \(rest)m"
+        guard let (days, hours, minutes) = parts(date, now: now) else { return "resets now" }
+        func unit(_ value: Int, _ name: String) -> String? {
+            value == 0 ? nil : "\(value) \(name)\(value == 1 ? "" : "s")"
         }
-        let days = hours / 24
-        let restHours = hours % 24
-        return restHours == 0 ? "in \(days)d" : "in \(days)d \(restHours)h"
+        let words =
+            days > 0 ? [unit(days, "day"), unit(hours, "hour")] : [unit(hours, "hour"), unit(minutes, "minute")]
+        return "resets in " + words.compactMap { $0 }.joined(separator: " ")
+    }
+
+    /// Days, hours and minutes to `date`, minutes rounded up (a day or more drops the minutes); nil once passed.
+    private static func parts(_ date: Date, now: Date) -> (days: Int, hours: Int, minutes: Int)? {
+        let seconds = date.timeIntervalSince(now)
+        guard seconds > 0 else { return nil }
+        let total = max(1, Int((seconds / 60).rounded(.up)))
+        let hours = total / 60
+        return (hours / 24, hours % 24, total % 60)
     }
 
     /// Whole percent, rounded: `83%`.
     public static func percent(_ value: Double) -> String {
         "\(Int(value.rounded()))%"
+    }
+}
+
+/// Tooltip and VoiceOver text of a limit; the colour is said in words too.
+public enum UsageText {
+    /// Tooltip: the title, then the used and the steady-pace shares when the window is known.
+    public static func help(_ title: String, _ limit: UsageLimit, now: Date) -> String {
+        guard let expected = limit.expectedPercent(now: now) else { return title }
+        return "\(title): \(ResetFormat.percent(limit.percent)) used, \(ResetFormat.percent(expected)) at a steady pace"
+    }
+
+    /// VoiceOver label: `5-hour quota, 26 %, above pace, resets in 44 minutes`.
+    public static func spoken(_ title: String, _ limit: UsageLimit, now: Date) -> String {
+        let pace =
+            switch limit.reading(now: now) {
+            case .normal: ""
+            case .warning: ", above pace"
+            case .critical: ", critical"
+            }
+        return "\(title), \(Int(limit.percent.rounded())) %\(pace), \(ResetFormat.spoken(limit.resetsAt, now: now))"
     }
 }
