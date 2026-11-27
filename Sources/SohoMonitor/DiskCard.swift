@@ -1,10 +1,11 @@
 import SohoMonitorCore
 import SwiftUI
 
-/// The disk card: header (icon, "Disk", used share), used / total, free-space pill, one continuous segmented bar, legend chips, the top 3
-/// folders of the selected group, and the scan status. Native Liquid Glass (macOS 26).
-/// Hovering the bar or a chip highlights that segment and puts its name, size and share in the header; the legend
-/// shows the biggest groups only, a chip unfolds the rest until the panel is hidden.
+/// The disk card, laid out as the NAS card (#93): header (icon, "Disk", used share, free space under it, macOS version),
+/// one thin segmented bar with "used of total" at its end, legend chips, the top 3 folders of the selected group, and
+/// the scan status. Native Liquid Glass (macOS 26).
+/// Hovering the bar or a chip highlights that segment and puts its name, size and share on the version's line; the
+/// legend shows the biggest groups only, a chip unfolds the rest until the panel is hidden.
 struct DiskCard: View {
     static let width: CGFloat = 420
     /// Chips shown while the legend is folded.
@@ -19,6 +20,8 @@ struct DiskCard: View {
     @State private var hovered: BarSegment.Kind?
     /// Not persisted: folded again whenever the panel is hidden.
     @State private var legendExpanded = false
+    /// Read once: the system version does not change while the app runs.
+    private static let systemVersion = MacOSVersion.current()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -29,7 +32,7 @@ struct DiskCard: View {
                     DiskBar.summary(of: $0, groups: groups, free: snapshot.free, scale: scale)
                 }
                 header(snapshot, hoverText: hoverText, groups: groups)
-                SegmentedBar(groups: groups, free: snapshot.free, scale: scale, hovered: $hovered)
+                usageRow(snapshot, groups: groups, scale: scale)
                 legend(groups)
                 if let name = openGroup, let group = groups.first(where: { $0.name == name }) {
                     TopFolders(group: group, tops: snapshot.tops.filter { $0.group == name })
@@ -66,37 +69,32 @@ struct DiskCard: View {
         .onChange(of: model.snapshot?.updated) { hovered = nil }
     }
 
-    /// The CPU and memory cards' header (icon, "Disk", used share as the large figure), then "X of Y used" and the
-    /// free-space pill. While a segment is hovered, its line replaces "X of Y used"; both stay in the layout (one
-    /// hidden) so the card keeps its size. The volume name is not shown, to keep the system cards' header (operator
-    /// request, #69); VoiceOver reads it, and the menu bar line still shows it.
+    /// The CPU and memory cards' header (icon, "Disk", used share as the large figure), then, as on the NAS card, a
+    /// line with the macOS version and the free space at its end, right under the large figure (plain, orange or red
+    /// by the free-space thresholds). While a segment is hovered, its line replaces the version; both stay in the
+    /// layout (one hidden) so the card keeps its size. The volume name is not shown, to keep the system cards' header
+    /// (operator request, #69); VoiceOver reads it, and the menu bar line still shows it.
     private func header(_ snapshot: DiskSnapshot, hoverText: String?, groups: [DiskGroup]) -> some View {
         let figure = PercentFormat.whole(DiskSummary.usedFraction(of: snapshot))
-        return VStack(alignment: .leading, spacing: 6) {
+        let free = "\(ByteFormat.short(snapshot.free)) free"
+        return VStack(alignment: .leading, spacing: 1) {
             MetricHeader(symbol: "internaldrive", title: "Disk", figure: figure, tint: CardColor.disk, compact: true)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Disk, \(snapshot.volume.isEmpty ? "startup disk" : snapshot.volume)")
-                .accessibilityValue("\(figure) used")
-            usageLine(snapshot, hoverText: hoverText, groups: groups)
-        }
-    }
-
-    private func usageLine(_ snapshot: DiskSnapshot, hoverText: String?, groups: [DiskGroup]) -> some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
-                let used = Text(ByteFormat.short(snapshot.used))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
+                .accessibilityValue("\(figure) used, \(free)")
+            HStack(spacing: 8) {
                 ZStack(alignment: .leading) {
-                    Text("\(used) of \(ByteFormat.short(snapshot.total)) used")
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(.secondary)
+                    Text(Self.systemVersion)
+                        .font(.system(size: 11, weight: .medium))
                         .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                         .opacity(hoverText == nil ? 1 : 0)
                     if let hoverText, let hovered {
                         HStack(spacing: 5) {
                             SegmentDot(kind: hovered, groups: groups)
                             Text(hoverText)
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
@@ -104,15 +102,24 @@ struct DiskCard: View {
                         .accessibilityHidden(true)  // VoiceOver reads the same from the bar's segments
                     }
                 }
+                Spacer(minLength: 0)
+                FigureCaption(
+                    text: free, tint: model.freeLevel == .normal ? nil : Palette.free(model.freeLevel)
+                )
+                .accessibilityHidden(true)  // read with the header's value
             }
-            Spacer()
-            Text("\(ByteFormat.short(snapshot.free)) free")
-                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+        }
+    }
+
+    /// The thin segmented bar, "used of total" at its end (as the NAS card's volume row).
+    private func usageRow(_ snapshot: DiskSnapshot, groups: [DiskGroup], scale: Int64) -> some View {
+        HStack(spacing: 8) {
+            SegmentedBar(groups: groups, free: snapshot.free, scale: scale, hovered: $hovered)
+            Text("\(ByteFormat.short(snapshot.used)) of \(ByteFormat.short(snapshot.total))")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Palette.free(model.freeLevel))
-                .padding(.horizontal, 9)
-                .padding(.vertical, 3)
-                .glassEffect(.regular, in: .capsule)
+                .foregroundStyle(.secondary)
+                .fixedSize()
         }
     }
 
@@ -185,9 +192,14 @@ enum Palette {
     }
 }
 
-/// One continuous glass capsule: adjoining segments split by a hairline, a single gloss over the whole bar. Drawn from
-/// `DiskBar.layout`, which the hover test reads too, so the highlighted segment is the one under the pointer.
+/// One continuous thin capsule (the NAS card's bar height): adjoining segments split by a hairline, a single gloss over
+/// the whole bar. Drawn from `DiskBar.layout`, which the hover test reads too, so the highlighted segment is the one
+/// under the pointer. The pointer area reaches a few points above and below the bar, which alone is too thin to aim
+/// at.
 private struct SegmentedBar: View {
+    /// Points above and below the bar that still hover it.
+    static let pointerSlop: CGFloat = 5
+
     let groups: [DiskGroup]
     let free: Int64
     let scale: Int64
@@ -214,9 +226,8 @@ private struct SegmentedBar: View {
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
-            .onPointer { point in hovered = point.flatMap { DiskBar.segment(at: $0.x, in: segments)?.kind } }
         }
-        .frame(height: 14)
+        .frame(height: ThinBar.height)
         .background(.black.opacity(0.18))
         .overlay {
             LinearGradient(
@@ -229,6 +240,17 @@ private struct SegmentedBar: View {
         }
         .clipShape(.capsule)
         .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+        // The pointer area, outside the clip: the bar's width, a few points taller than the bar; no layout change.
+        .padding(.vertical, Self.pointerSlop)
+        .overlay {
+            GeometryReader { proxy in
+                Color.clear.onPointer { point in
+                    let segments = DiskBar.layout(groups: groups, free: free, scale: scale, width: proxy.size.width)
+                    hovered = point.flatMap { DiskBar.segment(at: $0.x, in: segments)?.kind }
+                }
+            }
+        }
+        .padding(.vertical, -Self.pointerSlop)
         .animation(.smooth, value: hovered)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Disk usage")
