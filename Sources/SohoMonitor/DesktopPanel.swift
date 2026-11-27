@@ -11,7 +11,10 @@ final class DesktopPanelController {
     static let originKey = "panel.origin"
     static let margin: CGFloat = 24
 
-    init(model: AppModel) {
+    /// Called with true while some part of the panel is on screen (shown and not fully covered), false otherwise.
+    var onScreenChanged: ((Bool) -> Void)?
+
+    init(model: AppModel, system: SystemModel) {
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: DiskCard.width, height: 200),
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -26,8 +29,8 @@ final class DesktopPanelController {
         panel.isMovable = false  // moved by the drag gesture below, which also saves the position
 
         let host = NSHostingController(
-            rootView: DiskCard(
-                model: model,
+            rootView: PanelView(
+                model: model, system: system,
                 onDrag: { [weak self] phase in self?.drag(phase) },
                 onResetPosition: { [weak self] in self?.resetPosition() }))
         host.sizingOptions = [.preferredContentSize]
@@ -35,10 +38,24 @@ final class DesktopPanelController {
         host.view.layer?.backgroundColor = .clear
         panel.contentViewController = host
         placeAtSavedOrDefaultPosition()
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification, object: panel, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reportOnScreen() }
+        }
     }
 
     func setVisible(_ visible: Bool) {
         if visible { panel.orderFrontRegardless() } else { panel.orderOut(nil) }
+        reportOnScreen()
+    }
+
+    /// Live sampling runs only while this is true: a hidden panel, or one covered by full-screen windows, or on a
+    /// locked or sleeping display, costs nothing.
+    var isOnScreen: Bool { panel.isVisible && panel.occlusionState.contains(.visible) }
+
+    private func reportOnScreen() {
+        onScreenChanged?(isOnScreen)
     }
 
     // MARK: Position

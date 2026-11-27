@@ -28,12 +28,15 @@ struct SohoMonitorApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
+    let system = SystemModel()
     private var panel: DesktopPanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.start()
-        let panel = DesktopPanelController(model: model)
+        system.start()
+        let panel = DesktopPanelController(model: model, system: system)
         self.panel = panel
+        panel.onScreenChanged = { [weak self] onScreen in self?.system.setDemand(onScreen) }
         panel.setVisible(model.panelVisible)
         observePanelVisibility()
     }

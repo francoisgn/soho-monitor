@@ -7,8 +7,6 @@ struct DiskCard: View {
     static let width: CGFloat = 420
 
     let model: AppModel
-    let onDrag: (DesktopPanelController.DragPhase) -> Void
-    let onResetPosition: () -> Void
 
     @State private var openGroup: String?
     @State private var hoveredGroup: String?
@@ -46,14 +44,6 @@ struct DiskCard: View {
             in: .rect(cornerRadius: 28)
         )
         .glassEffect(.regular, in: .rect(cornerRadius: 28))
-        .contentShape(.rect(cornerRadius: 28))
-        .onTapGesture(count: 2, perform: onResetPosition)
-        .gesture(
-            DragGesture(minimumDistance: 2, coordinateSpace: .global)
-                .onChanged { _ in onDrag(.changed) }
-                .onEnded { _ in onDrag(.ended) }
-        )
-        .padding(12)  // room for the glass's own shadow inside the transparent panel
     }
 
     private func header(_ snapshot: DiskSnapshot) -> some View {
@@ -326,7 +316,7 @@ private struct ConfigProblems: View {
 }
 
 /// Chips that wrap onto as many lines as needed.
-private struct FlowLayout: Layout {
+struct FlowLayout: Layout {
     var spacing: CGFloat
     var lineSpacing: CGFloat
 
