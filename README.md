@@ -15,8 +15,9 @@
 > menu bar extra and a movable Liquid Glass desktop panel.
 
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
-widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: the **disk module** works (v0.1), the **CPU and memory cards** are in;
-the other modules are planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
+widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: the **disk** and **Claude** modules
+work, the **CPU and memory cards** are in; the other modules are planned, see the
+[issues](https://github.com/francoisgn/soho-monitor/issues).
 
 ## Features
 
@@ -26,7 +27,7 @@ the other modules are planned, see the [issues](https://github.com/francoisgn/so
 | System | CPU and memory cards (large figure, thin bar, sparkline of the last 120 samples, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
 | Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account | ⚪ planned |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
-| Claude | Usage of the operator's Claude plans (session and weekly limits, reset times) | ⚪ planned |
+| Claude | Usage of your Claude plans, one block per Claude Code profile: weekly limit bar, 5-hour session and per-model weekly donuts, reset times, server severity colours | 🟢 done |
 
 Design: Apple system fonts (SF Pro, SF Pro Rounded for figures), native materials and Liquid Glass (macOS 26),
 subtle gradients, cards inspired by the system monitor of [OnlySwitch](https://github.com/jacklandrin/OnlySwitch)
@@ -41,8 +42,10 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
 - **Card**: volume name, "X of Y used", free-space pill (orange / red under the configured thresholds), one
   continuous segmented bar (groups by size, `macOS` and `Other` last), legend chips with their size and ⚠︎ when a
   group was measured partially. Hover a segment or a chip for the detail of its categories; click a chip for the
-  group's three biggest folders (name, path, size, gauge). Drag the card to move it (position remembered),
-  double-click it to put it back in the bottom-left corner.
+  group's three biggest folders (name, path, size, gauge). Drag any card to move the panel, double-click one to put
+  it back in its default place: the top-left corner of the main screen, under the menu bar. The panel hangs from its
+  top-left corner (the one remembered), so it grows downward as cards are added or expand, and it is kept inside the
+  screen (a panel taller than the screen keeps its top visible).
 - **Menu**: summary line ("Macintosh HD: 183.9 GB free of 494.4 GB"), last update or "Scanning…", configuration or
   scan errors, Show / Hide Panel, Rescan Now, Quit.
 - **Scan**: every configured path is measured with `du -k -d 1` (one pass gives its size and its direct
@@ -105,6 +108,36 @@ Two glass cards above the disk card on the desktop panel:
 - **Sampling**: once per second, and only while the panel is on screen: hidden, or fully covered by windows
   (`NSWindow` occlusion state), nothing is sampled. After the Mac wakes, the first CPU sample is dropped rather than averaged over the sleep. A
   metric that cannot be read shows a dash and the reason in a red pill, never a fake 0 %.
+## Claude module
+
+A second card in the desktop panel, shown when the configuration lists Claude Code profiles:
+
+![Claude card](docs/images/claude-card.png)
+
+- **Per profile**, in configuration order: its label and plan, a bar with the **weekly** limit (all models), its
+  percent and reset; below, donuts with the **5-hour session** and each **per-model weekly** limit (e.g. Fable),
+  percent in the centre, reset under it. Colours follow the server's severity (green normal, orange warning, red
+  critical); the app never grades a row itself.
+- **States**: "Waiting for first update…"; a problem (not logged in, limits unavailable or none reported, Node.js
+  or Claude Code not found, config directory not found, helper error or timeout) is written under the block and the
+  last good figures stay; figures older than two refresh intervals are dimmed with their age.
+- **Source** ([ADR 0001](docs/adr/0001-claude-usage-source.md)): a Node helper bundled in the app
+  (`Contents/Resources/claude-usage/`) uses Anthropic's Claude Agent SDK to ask the **installed, unmodified
+  `claude`** for the data behind `/usage`, with the profile's own login (`CLAUDE_CONFIG_DIR`). No prompt is sent
+  (nothing is spent) and the app never reads a token, a credentials file or the Keychain. The figures come from
+  your plan's usage on the server, so they include work done elsewhere.
+- **Refresh**: every `claude.refresh_minutes` (default 5) and only while the panel is shown; showing it refreshes at
+  once each profile last tried at least that long ago. One profile at a time, at background priority, 30 s timeout.
+- **Requirements**: Node.js 18.14+ and Claude Code, found in your login shell's `PATH` or in `/opt/homebrew/bin`,
+  `/usr/local/bin`, `~/.local/bin`; each profile logged in once (`CLAUDE_CONFIG_DIR=<dir> claude`, then `/login`).
+  Building the app needs `npm` (`scripts/bundle-app.sh` installs the helper's pinned dependency from its lockfile).
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `claude.refresh_minutes` | integer, 1–1440 | 5 | Minutes between two refreshes while the panel is shown |
+| `claude.accounts` | list | none (card off) | Claude Code profiles, shown in this order |
+| `claude.accounts[].label` | string, required | — | Name in the card; unique |
+| `claude.accounts[].config_dir` | string, required | — | The profile's `CLAUDE_CONFIG_DIR` (`~` allowed); unique; a missing directory is a warning and the app does not run Claude Code for it |
 
 ## Architecture
 
@@ -128,6 +161,7 @@ Two glass cards above the disk card on the desktop panel:
 | `Package.swift` | Swift package: `SohoMonitorCore` (library), `SohoMonitor` (app), tests |
 | `Sources/SohoMonitorCore/` | Configuration, collectors, models: no UI, unit-tested |
 | `Sources/SohoMonitor/` | SwiftUI app: menu bar extra, desktop panel, cards |
+| `Helpers/claude-usage/` | Node helper of the Claude card (pinned Claude Agent SDK, lockfile), copied into the bundle |
 | `Tests/SohoMonitorCoreTests/` | Swift Testing suites |
 | `config/` | Example configuration |
 | `scripts/bundle-app.sh` | Release build → `build/SohoMonitor.app` (menu bar app, Apple Development certificate if present, else ad hoc) |
@@ -135,7 +169,8 @@ Two glass cards above the disk card on the desktop panel:
 
 ## Quick start
 
-Requirements: macOS 26 or later, Xcode 26 or later (Swift 6.2 toolchain).
+Requirements: macOS 26 or later, Xcode 26 or later (Swift 6.2 toolchain); Node.js 18.14+ with `npm` and Claude
+Code for the Claude card.
 
 ```sh
 git clone git@github.com:francoisgn/soho-monitor.git && cd soho-monitor

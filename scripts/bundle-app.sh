@@ -26,6 +26,16 @@ app="build/SohoMonitor.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin" "$app/Contents/MacOS/SohoMonitor"
+
+# Claude card helper (docs/adr/0001-claude-usage-source.md): the script and its pinned Agent SDK, installed from the
+# lockfile without the SDK's own copy of Claude Code (optional package, ~370 MB: the installed `claude` is used).
+# Before codesign: signing must stay the last step that modifies the bundle.
+command -v npm >/dev/null || ko "npm not found: install Node.js 18.14 or later (needed by the Claude card helper)"
+helper="$app/Contents/Resources/claude-usage"
+mkdir -p "$helper"
+cp Helpers/claude-usage/package.json Helpers/claude-usage/package-lock.json Helpers/claude-usage/usage.mjs "$helper/"
+(cd "$helper" && npm ci --omit=optional --omit=peer --omit=dev --ignore-scripts --no-audit --no-fund \
+  --loglevel=error >/dev/null) || ko "npm ci failed for the Claude helper"
 cat >"$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
