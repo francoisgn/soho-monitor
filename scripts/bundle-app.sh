@@ -48,8 +48,11 @@ plutil -lint "$app/Contents/Info.plist" >/dev/null || ko "invalid Info.plist"
 # Identity by SHA-1 hash: its name carries the developer's e-mail, which must not reach logs.
 identity="${CODESIGN_IDENTITY:-}"
 if [ -z "$identity" ]; then
-  identity="$(security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development: / { print $2; exit }')"
+  # No early exit in awk (SIGPIPE under pipefail); a failing keychain falls back to ad hoc.
+  identity="$(security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development: / && !h { h = $2 } END { print h }')" ||
+    identity=""
 fi
+[ "$identity" != "-" ] || identity=""  # CODESIGN_IDENTITY=- asks for ad hoc explicitly
 codesign --force --sign "${identity:--}" --identifier com.francoisgn.soho-monitor "$app" >/dev/null 2>&1 ||
   ko "codesign failed"
 if [ -n "$identity" ]; then signature="certificate"; else signature="ad hoc"; fi
