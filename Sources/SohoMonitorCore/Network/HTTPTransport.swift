@@ -97,6 +97,7 @@ public final class URLSessionTransport: HTTPTransport {
         urlRequest.httpShouldHandleCookies = false
         urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = request.body
+        trust.forgetFailure()
         do {
             let (data, response) = try await session.data(for: urlRequest)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0

@@ -125,6 +125,14 @@ import Testing
             delegate.disposition(for: challenge(host: "nas.example.test", port: 5001)) == .cancelAuthenticationChallenge
         )
         #expect(delegate.lastFailure == .noCertificate)
+        // Forgotten before the next request: a later cancellation is not reported as this refusal.
+        delegate.forgetFailure()
+        #expect(delegate.lastFailure == nil)
+        #expect(
+            URLSessionTransport.map(URLError(.cancelled), tlsFailure: delegate.lastFailure)
+                == .failed("network error -999"))
+        #expect(
+            URLSessionTransport.map(URLError(.cancelled), tlsFailure: .noCertificate) == .tls(.noCertificate))
     }
 
     private final class NoSender: NSObject, URLAuthenticationChallengeSender {

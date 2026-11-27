@@ -89,7 +89,7 @@ struct CredentialForm: View {
                 LabeledContent("NAS", value: "\(config.host):\(String(config.port))")
                 LabeledContent("Account", value: config.user)
                 SecureField("Password", text: $password)
-                    .onSubmit { if CredentialSetup.canSubmit(password: password) { save() } }
+                    .onSubmit { if CredentialSetup.canSubmit(password: password), !isBusy { save() } }
             } footer: {
                 Text(
                     "Use a dedicated DSM account without 2-factor authentication, with read-only access. The "

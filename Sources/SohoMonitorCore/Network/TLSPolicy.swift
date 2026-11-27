@@ -162,6 +162,12 @@ public final class HostTrustDelegate: NSObject, URLSessionTaskDelegate, Sendable
         return failure
     }
 
+    /// Called before each request: a reused connection raises no new challenge, so an older refusal must not be
+    /// taken for the reason of a later error (a cancelled task).
+    public func forgetFailure() {
+        last.withLock { if case .failure = $0 { $0 = nil } }
+    }
+
     /// nil: not ours, default handling. `.useCredential` or `.cancel` otherwise.
     func disposition(for challenge: URLAuthenticationChallenge) -> URLSession.AuthChallengeDisposition? {
         answer(for: challenge).map(\.0)

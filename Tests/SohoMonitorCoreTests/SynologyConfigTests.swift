@@ -102,6 +102,11 @@ import Testing
         #expect(found.map(\.keyPath) == ["synology.host", "synology.user"])
     }
 
+    @Test func anEmptyTLSSectionIsSystemTrust() throws {
+        let result = try parse("synology:\n  host: h.test\n  user: u\n  tls:\n")
+        #expect(result.config.synology?.tls == .systemTrust)
+    }
+
     @Test func pinAndOptOutTogetherIsAnError() {
         let found = issues(
             """

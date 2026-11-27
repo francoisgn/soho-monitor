@@ -153,8 +153,9 @@ synology:
   #   security add-generic-password -s soho-monitor -a synology -T "$HOME/Applications/SohoMonitor.app" -w
   # (-T lets the app read it without a prompt; without it macOS asks once: choose Always Allow.)
   keychain_item: synology
-  # Seconds between two refreshes of the NAS cards, at least 60 (polling floor for a small NAS). After failures the
-  # wait doubles up to 10 minutes; a refused login stops polling until the password or this section changes.
+  # Seconds between two refreshes of the NAS data cards (storage, system, Docker: coming next), at least 60 (polling
+  # floor for a small NAS). After failures the wait doubles up to 10 minutes; a refused login stops polling until the
+  # password or this section changes.
   interval_seconds: 60
   # How the NAS's certificate is trusted. Without `tls:`, the system's trust store decides: a certificate from a
   # public authority, valid and matching `host`. Otherwise, exactly one of:

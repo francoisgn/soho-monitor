@@ -89,6 +89,10 @@ public actor RemotePoller<Value: Sendable, C: Clock> where C.Duration == Duratio
     private var failingSince: Date?
     private var lastGood: (value: Value, at: Date)?
     private var loop: Task<Void, Never>?
+    /// Bumped by `credentialsChanged()`: a fetch that started before is ignored (it used the old credentials).
+    private var generation = 0
+    /// When the last attempt started: a repeated path event never brings the next one closer than an interval.
+    private var lastAttempt: C.Instant?
     private var sleeper: Task<Void, Never>?
     private var observers: [Int: AsyncStream<RemoteState<Value>>.Continuation] = [:]
     private var nextObserver = 0
@@ -146,11 +150,22 @@ public actor RemotePoller<Value: Sendable, C: Clock> where C.Duration == Duratio
 
     /// From `NWPathMonitor`. Unsatisfied: `.unreachable` at once, no request. Satisfied (a new path): one attempt at
     /// once, then the normal cadence.
+    /// While stopped (auth failure, needs setup), the state that asks for the user's action is kept.
     public func setPathSatisfied(_ satisfied: Bool) {
+        let wasSatisfied = pathSatisfied
         pathSatisfied = satisfied
         if satisfied {
-            nextAttempt = nil
-        } else {
+            if !wasSatisfied {
+                nextAttempt = nil
+            } else if let last = lastAttempt {
+                // Another satisfied path (Wi-Fi to Ethernet, VPN up): try soon, but never within an interval of
+                // the last attempt, so that a flapping path cannot defeat the backoff or the polling floor.
+                let floor = last.advanced(by: policy.interval)
+                nextAttempt = min(nextAttempt ?? floor, max(floor, clock.now))
+            } else {
+                nextAttempt = nil
+            }
+        } else if !stopped {
             let since = failingSince ?? now()
             failingSince = since
             publish(.unreachable(since: since, reason: "no network"))
@@ -160,6 +175,7 @@ public actor RemotePoller<Value: Sendable, C: Clock> where C.Duration == Duratio
 
     /// The secret or the configuration changed: polling resumes at once with a clean slate.
     public func credentialsChanged() {
+        generation += 1
         stopped = false
         failures = 0
         failingSince = nil
@@ -178,7 +194,12 @@ public actor RemotePoller<Value: Sendable, C: Clock> where C.Duration == Duratio
                 await pause(until: due)
                 continue
             }
+            let started = generation
+            lastAttempt = clock.now
             let result = await fetch()
+            // Credentials changed while it ran: its answer is about the old ones (a stale auth failure would stop
+            // polling right after a good password was saved).
+            guard started == generation else { continue }
             record(result)
         }
         loop = nil

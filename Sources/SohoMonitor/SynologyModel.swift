@@ -32,8 +32,12 @@ final class SynologyModel {
     func apply(_ config: SynologyConfig?) {
         guard config != self.config else { return }
         let itemChanged = config?.keychainItem != self.config?.keychainItem
+        let hostChanged =
+            config?.host != self.config?.host || config?.port != self.config?.port || config?.tls != self.config?.tls
         self.config = config
-        lastTrust = nil
+        // The TLS state is known only after a connection (Test, Save; the data cards' polling, #27, will refresh it
+        // at each cycle); it stays valid while the host and its policy do not change.
+        if hostChanged { lastTrust = nil }
         if itemChanged { refreshCredentials() }
     }
 

@@ -119,6 +119,7 @@ extension Reader {
     /// `tls:` of a LAN host: `pin_sha256` or `allow_self_signed`, not both; neither (or an empty mapping) is system
     /// trust. Nil after an error.
     mutating func readTLS(_ node: Node, at keyPath: String) -> TLSPolicy? {
+        if node.null != nil { return .systemTrust }  // `tls:` with nothing under it
         guard case .mapping(let mapping) = node else {
             error(node, keyPath, "expected a mapping (pin_sha256 or allow_self_signed)")
             return nil
