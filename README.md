@@ -209,6 +209,11 @@ full-history gitleaks. Coding agents follow [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.
 
 ## Support
 
-If soho-monitor saves you a trip to Activity Monitor or a NAS dashboard, you can buy me a coffee:
+<p align="center">
+  If soho-monitor saves you a trip to Activity Monitor or a NAS dashboard, you can buy me a coffee:
+</p>
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-francoisgn-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/francoisgn)
+<p align="center">
+  <a href="https://buymeacoffee.com/francoisgn"><img alt="Buy Me a Coffee"
+    src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-francoisgn-FFDD00?logo=buymeacoffee&logoColor=black"></a>
+</p>
