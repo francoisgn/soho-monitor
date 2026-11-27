@@ -31,11 +31,6 @@ struct DiskCard: View {
                 header(snapshot, hoverText: hoverText, groups: groups)
                 SegmentedBar(groups: groups, free: snapshot.free, scale: scale, hovered: $hovered)
                 legend(groups)
-                if case .group(let name) = hovered, let group = groups.first(where: { $0.name == name }),
-                    group.items.count > 1
-                {
-                    HoverDetail(group: group)
-                }
                 if let name = openGroup, let group = groups.first(where: { $0.name == name }) {
                     TopFolders(group: group, tops: snapshot.tops.filter { $0.group == name })
                 }
@@ -112,21 +107,23 @@ struct DiskCard: View {
     }
 
     /// Folded: the biggest groups (and the open one) then a "+N more" chip; unfolded: every group then "Less".
+    /// Changes that resize the panel are not animated: an animated window resize of the desktop panel crashed the app
+    /// (stack overflow in Auto Layout, reproduced on main by opening a chip).
     private func legend(_ groups: [DiskGroup]) -> some View {
         let compact = DiskSummary.compactLegend(groups, limit: Self.compactLegendCount, keeping: openGroup)
         return FlowLayout(spacing: 6, lineSpacing: 5) {
             ForEach(legendExpanded ? groups : compact.shown) { group in
                 LegendChip(group: group, selected: openGroup == group.name) {
-                    withAnimation(.snappy) { openGroup = openGroup == group.name ? nil : group.name }
+                    openGroup = openGroup == group.name ? nil : group.name
                 }
-                .onHover { inside in
+                .onPointer { point in
                     let kind = BarSegment.Kind.group(group.name)
-                    hovered = inside ? kind : (hovered == kind ? nil : hovered)
+                    hovered = point != nil ? kind : (hovered == kind ? nil : hovered)
                 }
             }
             if compact.hiddenCount > 0 {
                 LegendToggle(expanded: legendExpanded, hiddenCount: compact.hiddenCount) {
-                    withAnimation(.snappy) { legendExpanded.toggle() }
+                    legendExpanded.toggle()
                 }
             }
         }
@@ -204,13 +201,7 @@ private struct SegmentedBar: View {
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
-            .contentShape(.rect)
-            .onContinuousHover { phase in
-                switch phase {
-                case .active(let point): hovered = DiskBar.segment(at: point.x, in: segments)?.kind
-                case .ended: hovered = nil
-                }
-            }
+            .onPointer { point in hovered = point.flatMap { DiskBar.segment(at: $0.x, in: segments)?.kind } }
         }
         .frame(height: 14)
         .background(.black.opacity(0.18))
@@ -323,19 +314,6 @@ private struct LegendChip: View {
             selected ? .regular.tint(.white.opacity(0.18)).interactive() : .regular.interactive(), in: .capsule
         )
         .help(group.detail)
-    }
-}
-
-private struct HoverDetail: View {
-    let group: DiskGroup
-
-    var body: some View {
-        Text(group.detail)
-            .font(.system(size: 11, weight: .medium, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .transition(.opacity)
     }
 }
 

@@ -198,6 +198,57 @@ struct Sparkline: View {
     }
 }
 
+extension View {
+    /// Calls `action` with the pointer's location (view coordinates, origin top-left) while it is over the view, and
+    /// with nil when it leaves. Unlike `onHover` / `onContinuousHover`, which never fired in the desktop panel (an
+    /// agent app is not active, its panel never key), it uses an always-active AppKit tracking area. Clicks and drags
+    /// go through to the view below.
+    func onPointer(_ action: @escaping @MainActor (CGPoint?) -> Void) -> some View {
+        overlay(PointerTracker(action: action))
+    }
+}
+
+private struct PointerTracker: NSViewRepresentable {
+    let action: @MainActor (CGPoint?) -> Void
+
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.action = action
+        return view
+    }
+
+    func updateNSView(_ view: TrackingView, context: Context) {
+        view.action = action
+    }
+
+    final class TrackingView: NSView {
+        var action: (@MainActor (CGPoint?) -> Void)?
+
+        override var isFlipped: Bool { true }
+
+        // Transparent to clicks: only the tracking area matters.
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            for area in trackingAreas { removeTrackingArea(area) }
+            addTrackingArea(
+                NSTrackingArea(
+                    rect: .zero, options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited, .mouseMoved],
+                    owner: self))
+        }
+
+        override func mouseEntered(with event: NSEvent) { report(event) }
+        override func mouseMoved(with event: NSEvent) { report(event) }
+        override func mouseExited(with event: NSEvent) { action?(nil) }
+
+        private func report(_ event: NSEvent) {
+            let point = convert(event.locationInWindow, from: nil)
+            action?(bounds.contains(point) ? point : nil)
+        }
+    }
+}
+
 /// Pills that wrap onto as many lines as needed.
 struct PillRow: View {
     var pills: [InfoPill]
