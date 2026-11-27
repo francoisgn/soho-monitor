@@ -18,8 +18,8 @@
 
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
 widget (shell + JSX) with real glass and live sampling; the only helper is a small Node script for the Claude card
-(official Claude Agent SDK). Status: the **disk**, **CPU / memory** and **Claude** cards work; Synology and UniFi are
-planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
+(official Claude Agent SDK). Status: the **disk**, **CPU / memory** and **Claude** cards work; Synology is in progress
+(password, TLS policy and login test done, data cards next) and UniFi is planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
 
 ## Features
 
