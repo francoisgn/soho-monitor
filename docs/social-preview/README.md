@@ -1,8 +1,8 @@
 # Social preview
 
 Source of `docs/images/social-preview.png`, the GitHub social preview (1280 × 640, under 1 MB), shown at the top of
-the README too. It reuses the card images of `docs/images/` (generic labels, no personal data) and
-`disk-source.png` (the disk card alone).
+the README too. It reuses the card images of `docs/images/` (generic labels, no personal data): refresh them first
+when a card changes, then render again. The disk card's footer (last update, partial scan note) is clipped off.
 
 Render it with headless Chrome, from the repository root:
 
