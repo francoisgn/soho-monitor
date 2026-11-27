@@ -98,11 +98,17 @@ public struct LegendSelection: Sendable, Equatable {
 }
 
 extension DiskSummary {
-    /// The `limit` biggest groups (a tie goes to the one first in the bar), plus `keeping` (the group whose folders
-    /// are open) when it is not among them, in the bar's order so chips and segments line up.
+    /// The `limit` biggest configured groups, the computed `macOS` and `Other` only for the places left (they say
+    /// nothing about the configured categories, yet often outweigh them), a tie going to the one first in the bar;
+    /// plus `keeping` (the group whose folders are open) when it is not among them. In the bar's order, so chips and
+    /// segments line up.
     public static func compactLegend(_ groups: [DiskGroup], limit: Int, keeping: String? = nil) -> LegendSelection {
+        func computed(_ index: Int) -> Bool { groups[index].colorSlot == .macOS || groups[index].colorSlot == .other }
         let biggest = groups.indices
-            .sorted { groups[$0].bytes != groups[$1].bytes ? groups[$0].bytes > groups[$1].bytes : $0 < $1 }
+            .sorted { a, b in
+                if computed(a) != computed(b) { return !computed(a) }
+                return groups[a].bytes != groups[b].bytes ? groups[a].bytes > groups[b].bytes : a < b
+            }
             .prefix(max(0, limit))
         var kept = Set(biggest)
         if let keeping, let index = groups.firstIndex(where: { $0.name == keeping }) { kept.insert(index) }

@@ -112,10 +112,23 @@ private func group(_ name: String, _ bytes: Int64, slot: ColorSlot = .palette(0)
         group("macOS", 20 * gb, slot: .macOS), group("Other", 90 * gb, slot: .other),
     ]
 
-    @Test func showsTheBiggestGroupsInTheBarOrder() {
+    @Test func showsTheBiggestConfiguredGroupsBeforeTheComputedOnes() {
+        // Other (90 GB) and macOS (20 GB) outweigh Cloud, but say less about the configured categories.
         let legend = DiskSummary.compactLegend(groups, limit: 3)
-        #expect(legend.shown.map(\.name) == ["Dev", "Photos", "Other"])
+        #expect(legend.shown.map(\.name) == ["Dev", "Photos", "Cloud"])
         #expect(legend.hiddenCount == 3)
+    }
+
+    @Test func computedGroupsFillTheRestBiggestFirst() {
+        let few = [groups[0], groups[4], groups[5]]
+        #expect(DiskSummary.compactLegend(few, limit: 2).shown.map(\.name) == ["Dev", "Other"])
+    }
+
+    @Test func chipsKeepTheBarOrderWhateverTheSizeOrder() {
+        let unordered = [group("Small", 1), group("Big", 9), group("Mid", 5)]
+        #expect(DiskSummary.compactLegend(unordered, limit: 2).shown.map(\.name) == ["Big", "Mid"])
+        let reversed = [group("Mid", 5), group("Small", 1), group("Big", 9)]
+        #expect(DiskSummary.compactLegend(reversed, limit: 2).shown.map(\.name) == ["Mid", "Big"])
     }
 
     @Test func fewerGroupsThanTheLimitAreAllShown() {
@@ -132,8 +145,11 @@ private func group(_ name: String, _ bytes: Int64, slot: ColorSlot = .palette(0)
 
     @Test func theOpenGroupStaysVisible() {
         let legend = DiskSummary.compactLegend(groups, limit: 3, keeping: "Music")
-        #expect(legend.shown.map(\.name) == ["Dev", "Photos", "Music", "Other"])
+        #expect(legend.shown.map(\.name) == ["Dev", "Photos", "Cloud", "Music"])
         #expect(legend.hiddenCount == 2)
+        #expect(
+            DiskSummary.compactLegend(groups, limit: 3, keeping: "Other").shown.map(\.name)
+                == ["Dev", "Photos", "Cloud", "Other"])
         // Already among the biggest, or unknown: nothing added.
         #expect(DiskSummary.compactLegend(groups, limit: 3, keeping: "Dev").shown.count == 3)
         #expect(DiskSummary.compactLegend(groups, limit: 3, keeping: "Gone").shown.count == 3)
