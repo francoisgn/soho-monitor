@@ -71,8 +71,13 @@ public struct ClaudeTools: Sendable, Equatable {
 /// Runs the bundled helper (`claude-usage/usage.mjs`) with `node` for one profile, at background quality of service
 /// (`ProcessRunner`), with a timeout.
 public struct ClaudeUsageProvider: ClaudeUsageFetching {
-    /// Variables that would make Claude Code use another credential than the profile's own login.
-    static let credentialVariables = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"]
+    /// The only variables of the app's environment passed on: an allowlist, because others (API keys, OAuth tokens,
+    /// `ANTHROPIC_BASE_URL`, Bedrock or Vertex switches, custom headers) would make Claude Code use something else
+    /// than the profile's own login. Proxy and CA settings stay so that the call works behind a proxy.
+    static let passedVariables: Set<String> = [
+        "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "HTTPS_PROXY", "https_proxy",
+        "HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy", "NODE_EXTRA_CA_CERTS",
+    ]
 
     let runner: any EnvironmentCommandRunning
     let tools: ClaudeTools
@@ -107,8 +112,7 @@ public struct ClaudeUsageProvider: ClaudeUsageFetching {
         guard directoryExists(account.configDir) else {
             return .failure(.configDirMissing(PathDisplay.abbreviated(account.configDir, home: home)))
         }
-        var environment = baseEnvironment
-        for name in Self.credentialVariables { environment[name] = nil }
+        var environment = baseEnvironment.filter { Self.passedVariables.contains($0.key) }
         environment["PATH"] = tools.searchPath.joined(separator: ":")
         environment["CLAUDE_CONFIG_DIR"] = account.configDir
         environment["SOHO_CLAUDE_EXECUTABLE"] = claude

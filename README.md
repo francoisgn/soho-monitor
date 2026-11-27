@@ -97,9 +97,9 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
   percent and reset; below, donuts with the **5-hour session** and each **per-model weekly** limit (e.g. Fable),
   percent in the centre, reset under it. Colours follow the server's severity (green normal, orange warning, red
   critical); the app never grades a row itself.
-- **States**: "Waiting for first update…"; a problem (not logged in, limits unavailable, Node.js or Claude Code not
-  found, config directory not found, helper error or timeout) is written under the block and the last good figures
-  stay; figures older than two refresh intervals are dimmed with their age.
+- **States**: "Waiting for first update…"; a problem (not logged in, limits unavailable or none reported, Node.js
+  or Claude Code not found, config directory not found, helper error or timeout) is written under the block and the
+  last good figures stay; figures older than two refresh intervals are dimmed with their age.
 - **Source** ([ADR 0001](docs/adr/0001-claude-usage-source.md)): a Node helper bundled in the app
   (`Contents/Resources/claude-usage/`) uses Anthropic's Claude Agent SDK to ask the **installed, unmodified
   `claude`** for the data behind `/usage`, with the profile's own login (`CLAUDE_CONFIG_DIR`). No prompt is sent

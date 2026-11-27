@@ -57,6 +57,7 @@ private struct ClaudeAccountBlock: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(account.label).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                        .help(account.label)  // a long label is truncated: the full one on hover
                     if let plan = state.usage?.plan {
                         Text(plan.capitalized).font(.system(size: 10.5, weight: .medium)).foregroundStyle(.secondary)
                     }

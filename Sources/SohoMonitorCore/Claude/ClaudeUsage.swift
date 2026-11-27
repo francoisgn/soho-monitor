@@ -71,6 +71,8 @@ public enum ClaudeUsageProblem: Error, Sendable, Equatable {
     case helperMissing
     case timedOut(seconds: Int)
     case helperFailed(String)
+    /// Limits reported available, but no row of a known kind.
+    case noUsageRows
 
     public var message: String {
         switch self {
@@ -90,6 +92,8 @@ public enum ClaudeUsageProblem: Error, Sendable, Equatable {
             "no answer within \(seconds) s"
         case .helperFailed(let message):
             message
+        case .noUsageRows:
+            "no usage limit reported for this account"
         }
     }
 }
@@ -128,6 +132,10 @@ public enum ClaudeUsageParser {
             default:
                 continue
             }
+        }
+        // A card with a bare label says nothing: no known row is a problem of its own.
+        guard usage.session != nil || usage.weekly != nil || !usage.models.isEmpty else {
+            return .failure(.noUsageRows)
         }
         return .success(usage)
     }

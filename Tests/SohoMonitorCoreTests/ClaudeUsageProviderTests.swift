@@ -51,6 +51,8 @@ private final class FakeHelperRunner: EnvironmentCommandRunning, Sendable {
                 "HOME": "/Users/me", "PATH": "/usr/bin:/bin", "ANTHROPIC_API_KEY": "placeholder",
                 "ANTHROPIC_AUTH_TOKEN": "placeholder", "CLAUDE_CODE_OAUTH_TOKEN": "placeholder",
                 "CLAUDE_CONFIG_DIR": "/Users/me/.claude", "LANG": "en_US.UTF-8",
+                "ANTHROPIC_BASE_URL": "https://example.invalid", "CLAUDE_CODE_USE_BEDROCK": "1",
+                "HTTPS_PROXY": "http://proxy.invalid:3128",
             ],
             home: "/Users/me", directoryExists: { _ in existing }, timeout: timeout,
             now: { ClaudeFixtures.fetchedAt })
@@ -71,7 +73,7 @@ private final class FakeHelperRunner: EnvironmentCommandRunning, Sendable {
         #expect(call.environment["LANG"] == "en_US.UTF-8")
     }
 
-    /// Claude Code would use a key or token from the environment instead of the profile's own login.
+    /// Claude Code would use a key, a token or another endpoint from the environment instead of the profile login.
     @Test func credentialsFromTheEnvironmentAreNotPassedOn() async throws {
         let runner = FakeHelperRunner(output: ClaudeFixtures.output(ClaudeFixtures.max))
         _ = await provider(runner).fetch(account)
@@ -79,6 +81,9 @@ private final class FakeHelperRunner: EnvironmentCommandRunning, Sendable {
         #expect(environment["ANTHROPIC_API_KEY"] == nil)
         #expect(environment["ANTHROPIC_AUTH_TOKEN"] == nil)
         #expect(environment["CLAUDE_CODE_OAUTH_TOKEN"] == nil)
+        #expect(environment["ANTHROPIC_BASE_URL"] == nil)
+        #expect(environment["CLAUDE_CODE_USE_BEDROCK"] == nil)
+        #expect(environment["HTTPS_PROXY"] == "http://proxy.invalid:3128")  // proxies still work
     }
 
     @Test func missingPiecesAreReportedWithoutRunningAnything() async {

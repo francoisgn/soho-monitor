@@ -3,7 +3,8 @@ import Observation
 import SohoMonitorCore
 
 /// State of the Claude card: one `ClaudeAccountState` per configured profile. Refreshes only while the desktop panel
-/// is visible, every `refresh_minutes`, one profile at a time; showing the panel refreshes what is due at once.
+/// is visible, every `refresh_minutes`, one profile at a time; showing the panel refreshes what is due at once. The
+/// decisions (what is due, when to wake, what to forget) are `ClaudeRefreshPlan`'s, tested in the core.
 @MainActor @Observable
 final class ClaudeUsageModel {
     private(set) var config = ClaudeConfig.disabled
@@ -12,6 +13,8 @@ final class ClaudeUsageModel {
 
     @ObservationIgnored private var visible = false
     @ObservationIgnored private var loopTask: Task<Void, Never>?
+    /// Incremented at each restart: a cancelled loop that finishes late must not touch the current one's state.
+    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var tools: ClaudeTools?
 
     var isEnabled: Bool { config.isEnabled }
@@ -24,7 +27,7 @@ final class ClaudeUsageModel {
     func apply(_ config: ClaudeConfig) {
         guard config != self.config else { return }
         self.config = config
-        states = states.filter { config.accounts.contains($0.key) }
+        states = ClaudeRefreshPlan.retained(states, for: config)
         restartLoop()
     }
 
@@ -37,28 +40,31 @@ final class ClaudeUsageModel {
     private func restartLoop() {
         loopTask?.cancel()
         loopTask = nil
+        generation += 1
+        isRefreshing = false
         guard visible, config.isEnabled else { return }
+        let generation = generation
         loopTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                await self.refreshDueAccounts()
-                let wait = self.secondsUntilNextDue()
+                await self.refreshDueAccounts(generation: generation)
+                let wait = ClaudeRefreshPlan.secondsUntilNextDue(config: self.config, states: self.states, now: .now)
                 try? await Task.sleep(for: .seconds(wait))
             }
         }
     }
 
-    private func refreshDueAccounts() async {
-        let due = config.accounts.filter { state(of: $0).isDue(now: .now, refreshMinutes: config.refreshMinutes) }
+    private func refreshDueAccounts(generation: Int) async {
+        let due = ClaudeRefreshPlan.due(config: config, states: states, now: .now)
         guard !due.isEmpty else { return }
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer { if generation == self.generation { isRefreshing = false } }
         let provider = await makeProvider()
         for account in due {
             guard !Task.isCancelled else { return }
             let result = await provider.fetch(account)
             // Cancelled (panel hidden, configuration changed): the helper was stopped, its error is not news.
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, generation == self.generation else { return }
             // The configuration may have changed while the helper ran: keep only a current profile's result.
             guard config.accounts.contains(account) else { continue }
             var state = state(of: account)
@@ -71,7 +77,7 @@ final class ClaudeUsageModel {
     private func makeProvider() async -> ClaudeUsageProvider {
         let environment = ProcessInfo.processInfo.environment
         let home = NSHomeDirectory()
-        if tools == nil || tools?.node == nil || tools?.claude == nil {
+        if tools?.node == nil || tools?.claude == nil {
             tools = await Task.detached(priority: .background) {
                 await ClaudeTools.resolve(runner: ProcessRunner(), environment: environment, home: home)
             }.value
@@ -80,15 +86,5 @@ final class ClaudeUsageModel {
         return ClaudeUsageProvider(
             runner: ProcessRunner(), tools: tools ?? ClaudeTools(node: nil, claude: nil, searchPath: []),
             helperScript: script?.path, baseEnvironment: environment, home: home)
-    }
-
-    private func secondsUntilNextDue() -> Double {
-        let interval = Double(config.refreshMinutes * 60)
-        let next =
-            config.accounts.map { account -> Double in
-                guard let last = state(of: account).lastAttempt else { return 0 }
-                return interval - Date.now.timeIntervalSince(last)
-            }.min() ?? interval
-        return max(1, next)
     }
 }
