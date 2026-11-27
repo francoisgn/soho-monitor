@@ -24,7 +24,7 @@ struct NASCard: View {
             case .stale(let snapshot, let since, let reason):
                 NASDetails(snapshot: snapshot, host: config.host).opacity(0.5)
                 NASStatusLine(
-                    text: "Not updated since \(RelativeAge.string(from: since, now: now)): \(reason)",
+                    text: "Data from \(RelativeAge.string(from: since, now: now)): \(reason)",
                     level: .warning)
             case .loading:
                 header(figure: "—")
@@ -32,10 +32,13 @@ struct NASCard: View {
             case .unreachable(let since, let reason):
                 header(figure: "—")
                 NASStatusLine(
-                    text: "Unreachable since \(RelativeAge.string(from: since, now: now)): \(reason)", level: .warning)
+                    text: "Unreachable: \(reason) (first failure \(RelativeAge.string(from: since, now: now)))",
+                    level: .warning)
             case .failed(let message):
                 header(figure: "—")
-                NASStatusLine(text: message.capitalizedFirst, level: .critical)
+                // The fingerprint is in the row below (with its copy button), not twice.
+                let text = if case .certificateMismatch = tlsFailure { "Pinned certificate changed" } else { message }
+                NASStatusLine(text: text.capitalizedFirst, level: .critical)
                 if let presented = tlsFailure?.presented { FingerprintRow(fingerprint: presented) }
             case .authFailed(let message):
                 header(figure: "—")

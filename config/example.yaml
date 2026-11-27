@@ -154,10 +154,20 @@ synology:
   # (-T lets the app read it without a prompt; without it macOS asks once: choose Always Allow. "Test" on the NAS
   # card, or Test Saved Password in the credential window, reads it and logs in, which brings that prompt.)
   keychain_item: synology
-  # Seconds between two refreshes of the NAS data cards (storage, system, Docker: coming next), at least 60 (polling
-  # floor for a small NAS). After failures the wait doubles up to 10 minutes; a refused login stops polling until the
-  # password or this section changes.
+  # Seconds between two refreshes of the NAS card, at least 60 (polling floor for a small NAS). The card is refreshed
+  # only while the desktop panel is shown, with one login kept from one refresh to the next. After failures the wait
+  # doubles up to 10 minutes; a refused login stops polling until the password or this section changes.
   interval_seconds: 60
+  # Parts of the card, each with its own DSM calls (default: all four). Remove one to stop its calls:
+  #   storage  volume usage and health, storage pool and disk health (SYNO.Storage.CGI.Storage)
+  #   system   CPU, RAM, disk activity, model, DSM version, temperature, uptime (SYNO.Core.System[.Utilization])
+  #   update   "Update: DSM x.y" badge when DSM has an update (SYNO.Core.Upgrade.Server, read-only check)
+  #   docker   containers with a status dot (SYNO.Docker.Container; hidden when the package is not installed)
+  sections: [storage, system, update, docker]
+  # Containers that are stopped on purpose (jobs started by hand): shown with a grey dot, not flagged.
+  expected_stopped: []
+  # Hours between two DSM update checks, 1 to 168 (default 6): the check makes the NAS contact Synology's servers.
+  update_interval_hours: 6
   # How the NAS's certificate is trusted. Without `tls:`, the system's trust store decides: a certificate from a
   # public authority, valid and matching `host`. Otherwise, exactly one of:
   #   pin_sha256         trust only this certificate, by the SHA-256 fingerprint of its leaf (64 hex digits, `:`
