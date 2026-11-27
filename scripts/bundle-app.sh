@@ -59,11 +59,13 @@ plutil -lint "$app/Contents/Info.plist" >/dev/null || ko "invalid Info.plist"
 # App icon: actool (Xcode 26+) compiles the Icon Composer package into Assets.car (Liquid Glass, light / dark /
 # tinted) plus AppIcon.icns for older readers. actool exits 0 even when it compiles nothing, so the output is checked.
 # Without it, the app is built with the generic icon.
-icon_log="build/actool.log"
+# Absolute paths only: actool hands the work to a long-lived agent process that resolves relative paths against
+# its own working directory (the folder of the first call, e.g. another git worktree), not this script's.
+icon_log="$ROOT/build/actool.log"
 echo "actool not found" >"$icon_log"
 if xcrun --find actool >/dev/null 2>&1 &&
-  xcrun actool Resources/AppIcon.icon --compile "$app/Contents/Resources" --platform macosx \
-    --minimum-deployment-target 26.0 --app-icon AppIcon --output-partial-info-plist "build/actool-partial.plist" \
+  xcrun actool "$ROOT/Resources/AppIcon.icon" --compile "$ROOT/$app/Contents/Resources" --platform macosx \
+    --minimum-deployment-target 26.0 --app-icon AppIcon --output-partial-info-plist "$ROOT/build/actool-partial.plist" \
     --output-format human-readable-text >"$icon_log" 2>&1 &&
   [ -f "$app/Contents/Resources/Assets.car" ] && [ -f "$app/Contents/Resources/AppIcon.icns" ]; then
   plutil -replace CFBundleIconName -string AppIcon "$app/Contents/Info.plist"
