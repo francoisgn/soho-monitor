@@ -66,7 +66,8 @@ final class AppModel {
         let previous = configState.hasValidConfig ? configState.config : nil
         configState.apply(ConfigFile.load(configURL))
         claude.apply(configState.config.claude)
-        guard configState.hasValidConfig, previous != configState.config else { return }
+        // Only a disk change reschedules: rescheduling cancels a scan in progress.
+        guard configState.hasValidConfig, previous?.disk != configState.config.disk else { return }
         guard let previous, previous.disk.categories != configState.config.disk.categories else {
             schedule()  // first valid configuration, or only the interval or thresholds changed
             return
