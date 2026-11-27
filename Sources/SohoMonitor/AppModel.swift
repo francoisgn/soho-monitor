@@ -11,8 +11,13 @@ final class AppModel {
     private(set) var isScanning = false
     private(set) var lastScanError: String?
     var panelVisible: Bool {
-        didSet { UserDefaults.standard.set(panelVisible, forKey: Self.panelVisibleKey) }
+        didSet {
+            UserDefaults.standard.set(panelVisible, forKey: Self.panelVisibleKey)
+            claude.setVisible(panelVisible)
+        }
     }
+    /// The Claude card's state; refreshed only while the panel is visible.
+    let claude = ClaudeUsageModel()
 
     @ObservationIgnored private let store: SnapshotStore
     @ObservationIgnored private let coordinator: ScanCoordinator
@@ -45,6 +50,7 @@ final class AppModel {
     func start() {
         snapshot = store.load()
         reloadConfig()
+        claude.setVisible(panelVisible)
         schedule()
         watchConfig()
     }
@@ -59,6 +65,7 @@ final class AppModel {
         configFingerprint = FileFingerprint(url: configURL)
         let previous = configState.hasValidConfig ? configState.config : nil
         configState.apply(ConfigFile.load(configURL))
+        claude.apply(configState.config.claude)
         guard configState.hasValidConfig, previous != configState.config else { return }
         guard let previous, previous.disk.categories != configState.config.disk.categories else {
             schedule()  // first valid configuration, or only the interval or thresholds changed
