@@ -24,12 +24,13 @@
           background: rgba(255,255,255,.10); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 0 .5px rgba(255,255,255,.15); }
   .card { position: absolute; filter: drop-shadow(0 22px 36px rgba(0,0,0,.55)); }
   .card img { display: block; }
-  .sys { left: 640px; top: 34px; width: 400px; }
+  .sys { left: 640px; top: 40px; width: 400px; }
   .sys img { width: 400px; }
-  .disk { left: 640px; top: 222px; width: 400px; height: 212px; overflow: hidden;
-          clip-path: inset(11px 11px 0 11px round 20px); }
-  .disk img { width: 400px; }
-  .claude { left: 862px; top: 262px; width: 380px; }
+  /* The card's footer ("Updated … · partial scan" note) is clipped off: its bottom edge (card at 10.5 px from the
+     image's sides) is redrawn under the legend. Clip on the image, so the wrapper's shadow follows the new edge. */
+  .disk { left: 640px; top: 178px; width: 400px; }
+  .disk img { width: 400px; clip-path: inset(0 11px 37px 10.5px round 0 0 22px 22px); }
+  .claude { left: 862px; top: 300px; width: 380px; }
   .claude img { width: 380px; }
 </style>
 </head>
@@ -41,7 +42,7 @@
     <div class="chips"><span class="chip">SwiftUI</span><span class="chip">macOS 26</span><span class="chip">open source</span></div>
   </div>
   <div class="card sys"><img src="../images/system-cards.png" alt=""></div>
-  <div class="card disk"><img src="disk-source.png" alt=""></div>
+  <div class="card disk"><img src="../images/disk-card.png" alt=""></div>
   <div class="card claude"><img src="../images/claude-card.png" alt=""></div>
 </body>
 </html>
