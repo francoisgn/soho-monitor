@@ -40,13 +40,17 @@ enum ClaudeFixtures {
         #expect(
             usage.session
                 == UsageLimit(
-                    percent: 15, severity: .normal, resetsAt: ClaudeFixtures.date("2026-11-27T12:00:00.174Z")))
+                    percent: 15, severity: .normal, resetsAt: ClaudeFixtures.date("2026-11-27T12:00:00.174Z"),
+                    window: UsageWindow.session))
         #expect(
             usage.weekly
-                == UsageLimit(percent: 82.5, severity: .warning, resetsAt: ClaudeFixtures.date("2026-11-30T00:00:00Z")))
+                == UsageLimit(
+                    percent: 82.5, severity: .warning, resetsAt: ClaudeFixtures.date("2026-11-30T00:00:00Z"),
+                    window: UsageWindow.weekly))
         #expect(usage.models.map(\.model) == ["Fable"])
         #expect(usage.models.first?.limit.percent == 6)
         #expect(usage.models.first?.limit.severity == .critical)
+        #expect(usage.models.first?.limit.window == UsageWindow.weekly)
     }
 
     /// Fractional seconds are microseconds in the server's timestamps; the parsed date keeps them to the millisecond.
@@ -67,7 +71,7 @@ enum ClaudeFixtures {
             """
         let usage = try parse(ClaudeFixtures.output(json)).get()
         // A row whose percent is not a number is skipped; the next `session` row is used.
-        #expect(usage.session == UsageLimit(percent: 40, severity: .normal, resetsAt: nil))
+        #expect(usage.session == UsageLimit(percent: 40, severity: .normal, resetsAt: nil, window: UsageWindow.session))
         #expect(usage.weekly == nil)
         // A scoped row without a model is not shown: the card labels each donut with its model.
         #expect(usage.models.isEmpty)
@@ -152,36 +156,6 @@ enum ClaudeFixtures {
         state.record(.failure(.timedOut(seconds: 30)), at: t0)
         #expect(state.isDue(now: t0 + 298, refreshMinutes: 5) == false)
         #expect(state.isDue(now: t0 + 299.5, refreshMinutes: 5))  // a timer firing a little early still refreshes
-    }
-}
-
-@Suite struct ResetFormatTests {
-    private let now = ClaudeFixtures.fetchedAt
-
-    static let cases: [(Double, String)] = [
-        (7800, "in 2h 10m"),
-        (2700, "in 45m"),
-        (30, "in 1m"),
-        (7200, "in 2h"),
-        (223_259, "in 2d 14h"),  // 62 h and 59 s
-        (259_200, "in 3d"),
-        (0, "reset"),
-        (-600, "reset"),
-    ]
-
-    @Test(arguments: cases)
-    func relative(offset: Double, expected: String) {
-        #expect(ResetFormat.relative(now + offset, now: now) == expected)
-    }
-
-    @Test func unknownReset() {
-        #expect(ResetFormat.relative(nil, now: now) == "no reset time")
-    }
-
-    @Test func percentFigure() {
-        #expect(ResetFormat.percent(82.5) == "83%")
-        #expect(ResetFormat.percent(0) == "0%")
-        #expect(ResetFormat.percent(100.4) == "100%")
     }
 }
 

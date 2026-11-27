@@ -29,7 +29,7 @@ widget (shell + JSX) with real glass and live sampling; the only helper is a sma
 | System | CPU and memory cards (large figure, thin bar, sparkline of the last 120 samples, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
 | Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account. Done: `synology:` config, password in the Keychain (credential window, with a test of the saved password from the window or the NAS card), per-host TLS policy (system, pinned SHA-256, opt-out), DSM login client, polling engine with backoff for the data cards, which come next | 🔵 in progress |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
-| Claude | Usage of your Claude plans, one block per Claude Code profile: weekly limit bar, 5-hour session and per-model weekly donuts, reset times, server severity colours | 🟢 done |
+| Claude | Usage of your Claude plans, one block per Claude Code profile: weekly limit bar, 5-hour session and per-model weekly lines (ring, percent, short reset time), pace colours | 🟢 done |
 
 Design: Apple system fonts (SF Pro, SF Pro Rounded for figures), native materials and Liquid Glass (macOS 26),
 subtle gradients, cards inspired by the system monitor of [OnlySwitch](https://github.com/jacklandrin/OnlySwitch)
@@ -134,9 +134,13 @@ A second card in the desktop panel, shown when the configuration lists Claude Co
 <p align="center"><img src="docs/images/claude-card.png" alt="Claude card" width="420"></p>
 
 - **Per profile**, in configuration order: its label and plan, a bar with the **weekly** limit (all models), its
-  percent and reset; below, donuts with the **5-hour session** and each **per-model weekly** limit (e.g. Fable),
-  percent in the centre, reset under it. Colours follow the server's severity (green normal, orange warning, red
-  critical); the app never grades a row itself.
+  percent and reset; below, one line per other limit, two side by side: the **5-hour session** and each
+  **per-model weekly** limit (e.g. Fable), as a small ring, the percent, the name and the time to the reset. Reset
+  times are short: `44m`, `3h05`, `2d12h` (`now` once passed, `–` unknown); VoiceOver reads them in full.
+- **Colours** (bar and rings): **green** while the usage keeps pace with the window, **yellow** when it runs ahead
+  (more used than the elapsed share of the window: 20 % an hour on the 5-hour window, the elapsed share of the
+  7 days on a weekly one), **red** at 90 % or more whatever the pace. The server's severity is a floor: a row it
+  rates warning or critical is never shown milder. VoiceOver says "above pace" or "critical" in words.
 - **States**: "Waiting for first update…"; a problem (not logged in, limits unavailable or none reported, Node.js
   or Claude Code not found, config directory not found, helper error or timeout) is written under the block and the
   last good figures stay; figures older than two refresh intervals are dimmed with their age.
