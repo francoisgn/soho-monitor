@@ -34,13 +34,13 @@ behind Claude Code's `/usage`, fetched by the **unmodified `claude` binary** wit
   `weekly_all` (all models), `weekly_scoped` (one model, `scope.model.display_name`, e.g. "Fable"). Unknown kinds and
   fields are ignored. The colour starts from the server's `severity` (`normal`, `warning`, `critical`), which the
   client never lowers. **Amendment (#78, operator request)**: the client raises it with a pace reading: warning
-  when the share used is more than the elapsed share of the window plus 5 percentage points (margin chosen by the
-  operator in #82, option B, so a few percent used right after a reset stays green) (start = `resets_at` minus the window length:
-  5 hours for `session`, 7 days for `weekly_all` and `weekly_scoped`; inferred, since a row has no length field:
-  the SDK typings name "plan rate-limit utilization windows (5-hour, 7-day, per-model)" and the legacy
-  `five_hour` / `seven_day` / `seven_day_opus` fields),
-  critical at 90 % or more. No reset time or an unknown kind: no pace reading. This departs from the SDK's "a client
-  never grades a row itself" in one direction only (stricter, never milder than the server).
+  when the share used is more than the elapsed share of the window plus 5 percentage points (start = `resets_at`
+  minus the window length: 5 hours for `session`, 7 days for `weekly_all` and `weekly_scoped`; inferred, since a
+  row has no length field: the SDK typings name "plan rate-limit utilization windows (5-hour, 7-day, per-model)"
+  and the legacy `five_hour` / `seven_day` / `seven_day_opus` fields),
+  critical at 90 % or more. The 5-point margin was chosen by the operator in #82 (option B) so that a few percent
+  used right after a reset stays green. No reset time or an unknown kind: no pace reading. This departs from the
+  SDK's "a client never grades a row itself" in one direction only (stricter, never milder than the server).
 - Refresh: every `claude.refresh_minutes` (default 5) while the desktop panel is visible; showing it refreshes at once
   each profile last tried at least that long ago. One profile at a time, background quality of service, 30 s timeout.
 
