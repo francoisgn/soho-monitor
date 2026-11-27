@@ -7,6 +7,8 @@ public struct HTTPRequest: Sendable, CustomStringConvertible, CustomDebugStringC
     public var method = "POST"
     /// In order; sent as `application/x-www-form-urlencoded`.
     public var fields: [(name: String, value: String)]
+    /// Seconds to wait for this request instead of the transport's default (a slow login).
+    public var timeout: TimeInterval?
 
     public init(url: URL, fields: [(String, String)]) {
         self.url = url
@@ -86,7 +88,7 @@ public final class URLSessionTransport: HTTPTransport {
         configuration.urlCredentialStorage = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.timeoutIntervalForRequest = timeout
-        configuration.timeoutIntervalForResource = timeout * 1.5
+        configuration.timeoutIntervalForResource = Self.resourceTimeout(defaultTimeout: timeout)
         configuration.waitsForConnectivity = false
         configuration.httpMaximumConnectionsPerHost = 1
         session = URLSession(configuration: configuration, delegate: trust, delegateQueue: nil)
@@ -99,12 +101,7 @@ public final class URLSessionTransport: HTTPTransport {
     public var trustState: TLSTrustState? { trust.lastState }
 
     public func send(_ request: HTTPRequest) async throws(TransportError) -> HTTPResponse {
-        var urlRequest = URLRequest(
-            url: request.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
-        urlRequest.httpMethod = request.method
-        urlRequest.httpShouldHandleCookies = false
-        urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = request.body
+        let urlRequest = Self.urlRequest(for: request, defaultTimeout: timeout)
         trust.forgetFailure()
         do {
             let (data, response) = try await session.data(for: urlRequest)
@@ -113,6 +110,22 @@ public final class URLSessionTransport: HTTPTransport {
         } catch {
             throw Self.map(error, host: host, tlsFailure: trust.lastFailure)
         }
+    }
+
+    static func urlRequest(for request: HTTPRequest, defaultTimeout: TimeInterval) -> URLRequest {
+        var urlRequest = URLRequest(
+            url: request.url, cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: request.timeout ?? defaultTimeout)
+        urlRequest.httpMethod = request.method
+        urlRequest.httpShouldHandleCookies = false
+        urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = request.body
+        return urlRequest
+    }
+
+    /// The cap on a whole exchange: it must leave room for the slowest request (the DSM login).
+    static func resourceTimeout(defaultTimeout: TimeInterval) -> TimeInterval {
+        max(defaultTimeout, DSMClient.loginTimeout) * 1.5
     }
 
     /// True for a dotted-quad IPv4 or an IPv6 address (brackets and zone allowed), never for a name.

@@ -54,6 +54,9 @@ public actor DSMClient {
     /// The version the guide recommends (p. 15), used when the NAS supports it.
     static let preferredAuthVersion = 6
     static let minimumAuthVersion = 3
+    /// Seconds a login may take: a DS416play answered a v6 login in 3.8 s (a v7 one in 29 s), above what other calls
+    /// need.
+    public static let loginTimeout: TimeInterval = 30
 
     private struct Session: Equatable {
         var sid: String
@@ -190,7 +193,8 @@ public actor DSMClient {
             ("passwd", password), ("session", sessionName), ("format", "sid"),
         ]
         if auth.version >= 6 { fields.append(("enable_syno_token", "yes")) }
-        let request = HTTPRequest(url: url(path: auth.path), fields: fields)
+        var request = HTTPRequest(url: url(path: auth.path), fields: fields)
+        request.timeout = Self.loginTimeout
         let data: Data
         do throws(DSMError) {
             data = try await send(request, api: "SYNO.API.Auth")

@@ -168,3 +168,16 @@ import Testing
         #expect(message.contains("System Settings › Privacy & Security › Local Network"))
     }
 }
+
+@Suite struct RequestTimeoutTests {
+    @Test func aRequestTimeoutOverridesTheTransportDefault() {
+        var request = HTTPRequest(url: URL(string: "https://nas.example.test:5001/webapi/entry.cgi")!, fields: [])
+        #expect(URLSessionTransport.urlRequest(for: request, defaultTimeout: 10).timeoutInterval == 10)
+        request.timeout = 30
+        #expect(URLSessionTransport.urlRequest(for: request, defaultTimeout: 10).timeoutInterval == 30)
+    }
+
+    @Test func theWholeExchangeMayLastAsLongAsTheLongestRequest() {
+        #expect(URLSessionTransport.resourceTimeout(defaultTimeout: 10) >= DSMClient.loginTimeout)
+    }
+}
