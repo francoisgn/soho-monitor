@@ -12,7 +12,8 @@ struct CPUCard: View {
         let tint = CardColor.tint(usage?.level ?? .normal, accent: CardColor.cpu)
         GlassCard(accent: CardColor.cpu) {
             MetricHeader(
-                symbol: "cpu", title: "CPU", subtitle: info.name, figure: PercentFormat.whole(usage?.total), tint: tint
+                symbol: "cpu", title: "CPU", subtitle: info.name ?? " ", figure: PercentFormat.whole(usage?.total),
+                tint: tint
             )
             .help(usage.map(Self.detail) ?? "")
             ThinBar(fraction: usage?.total, tint: tint)
@@ -37,7 +38,7 @@ struct MemoryCard: View {
         let tint = CardColor.tint(reading?.level ?? .normal, accent: CardColor.memory)
         GlassCard(accent: CardColor.memory) {
             MetricHeader(
-                symbol: "memorychip", title: "Memory", subtitle: reading?.usedOfTotal,
+                symbol: "memorychip", title: "Memory", subtitle: reading?.usedOfTotal ?? " ",
                 figure: PercentFormat.whole(reading?.usedFraction), tint: tint
             )
             .help(reading?.breakdown ?? "")
@@ -78,10 +79,14 @@ struct SystemCards: View {
     let model: SystemModel
 
     var body: some View {
+        // Same height for both cards, whatever their pills.
         HStack(alignment: .top, spacing: 10) {
             CPUCard(status: model.cpu, history: model.cpuHistory, info: model.cpuInfo)
+                .frame(maxHeight: .infinity, alignment: .top)
             MemoryCard(status: model.memory, history: model.memoryHistory)
+                .frame(maxHeight: .infinity, alignment: .top)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 

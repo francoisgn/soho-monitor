@@ -1,4 +1,5 @@
 import AppKit
+import SohoMonitorCore
 import SwiftUI
 
 /// Borderless panel at desktop level: above the wallpaper and the desktop icons, below every normal window, on all
@@ -38,6 +39,12 @@ final class DesktopPanelController {
         host.view.layer?.backgroundColor = .clear
         panel.contentViewController = host
         placeAtSavedOrDefaultPosition()
+        keepOnScreen()
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: panel, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.keepOnScreen() }
+        }
         NotificationCenter.default.addObserver(
             forName: NSWindow.didChangeOcclusionStateNotification, object: panel, queue: .main
         ) { [weak self] _ in
@@ -106,10 +113,14 @@ final class DesktopPanelController {
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main else {
             return origin
         }
-        let frame = screen.visibleFrame
-        let size = panel.frame.size
-        return CGPoint(
-            x: min(max(origin.x, frame.minX), frame.maxX - size.width),
-            y: min(max(origin.y, frame.minY), frame.maxY - size.height))
+        return PanelPlacement.origin(of: CGRect(origin: origin, size: panel.frame.size), within: screen.visibleFrame)
+    }
+
+    /// After a resize (cards added, a group's top folders opened): back inside its screen's visible frame. The saved
+    /// position is left as is, so the panel returns there when it is short again.
+    private func keepOnScreen() {
+        guard let screen = panel.screen ?? NSScreen.main else { return }
+        let origin = PanelPlacement.origin(of: panel.frame, within: screen.visibleFrame)
+        if origin != panel.frame.origin { panel.setFrameOrigin(origin) }
     }
 }

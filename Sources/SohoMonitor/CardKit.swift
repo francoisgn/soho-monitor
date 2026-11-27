@@ -37,7 +37,7 @@ struct GlassCard<Content: View>: View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         VStack(alignment: .leading, spacing: 8) { content }
             .padding(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16))
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background {
                 if reduceTransparency {
                     shape.fill(Color(nsColor: .windowBackgroundColor))

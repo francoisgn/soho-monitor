@@ -91,6 +91,8 @@ A category has either `paths` or `source`. Put the most specific paths first (De
 
 Two glass cards above the disk card on the desktop panel:
 
+![CPU and memory cards](docs/images/system-cards.png)
+
 - **CPU**: total usage of all cores (user + system + nice ticks over all ticks between two samples, from
   `host_processor_info`), chip name (`machdep.cpu.brand_string`), core count and the split per performance level
   (`hw.perflevelN`, e.g. "4P + 6E"); hover the figure for user / system. The first second shows "Sampling…": a rate
