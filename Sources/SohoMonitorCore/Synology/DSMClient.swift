@@ -225,7 +225,7 @@ public actor DSMClient {
         return (auth.path, auth.maxVersion)
     }
 
-    /// `_sid` in the body, the token in its header: DSM ignores a body `SynoToken` (type doc).
+    /// `_sid` in the body, the token in its header: DSM 7 answers 119 to a body `SynoToken` (see the `DSMClient` doc).
     private func sessionRequest(url: URL, fields: [(String, String)], _ session: Session) -> HTTPRequest {
         var request = HTTPRequest(url: url, fields: fields + [("_sid", session.sid)])
         if let token = session.synoToken { request.headers = [(name: Self.tokenHeader, value: token)] }
