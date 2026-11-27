@@ -180,8 +180,8 @@ saved password); then it shows the NAS's data:
   ("almost full" when DSM says so) and one for the worst storage pool or disk, named when it is not healthy; the
   hottest disk.
 - **System**: model, DSM version, temperature (orange when DSM raises its temperature warning) and uptime under the
-  title; CPU (user + system + other load), RAM (`real_usage`) and disk activity (how busy the disks were, DSM Resource
-  Monitor › Disk) on one line, orange from 70 % (RAM 85 %), red from 90 % (RAM 95 %), as the Mac's cards.
+  title; CPU (user + system + other load), RAM (`real_usage`) and disk activity (how busy the disks were, all drives
+  together: `disk.total.utilization`) on one line, orange from 70 % (RAM 85 %), red from 90 % (RAM 95 %), as the Mac's cards.
 - **Containers**: running / total, then one dot per container, problems first: red unhealthy or exited with an
   error, orange stopped, restarting or paused, grey stopped on purpose (`expected_stopped`), green running. Only
   names, images and states are read: never environment variables, command lines or mounts.

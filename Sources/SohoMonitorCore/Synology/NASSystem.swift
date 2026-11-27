@@ -9,7 +9,8 @@ public struct NASSystem: Sendable, Equatable {
     public var cpu: Double?
     /// `memory.real_usage` (py-synologydsm-api `memory_real_usage`, same file :115-117).
     public var memory: Double?
-    /// `disk.total.utilization`: how busy the disks were, the "Utilization" of DSM's Resource Monitor › Disk.
+    /// `disk.total.utilization`: how busy the disks were, in %; in the recording it is the mean of the drives' own
+    /// `utilization` (35, 25, 91, 86 → 59).
     public var diskActivity: Double?
     public var model: String?
     /// `firmware_ver`, e.g. "DSM 7.1.1-42962 Update 9".
@@ -62,7 +63,9 @@ public struct NASSystem: Sendable, Equatable {
         return system
     }
 
-    /// `up_time` is "hours:minutes:seconds" ("1856:6:43": minutes and seconds below 60, hours unbounded).
+    /// `up_time` read as "hours:minutes:seconds": the recorded "1856:6:43" fits only that reading (no day field,
+    /// minutes and seconds below 60). Inferred from the recording, not documented by Synology: to check against DSM's
+    /// own uptime display.
     public static func uptime(_ text: String) -> TimeInterval? {
         let parts = text.split(separator: ":", omittingEmptySubsequences: false).map { Int($0) }
         guard parts.count == 3, let hours = parts[0], let minutes = parts[1], let seconds = parts[2], hours >= 0,

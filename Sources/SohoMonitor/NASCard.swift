@@ -197,7 +197,7 @@ private struct LoadLine: View {
             figure("CPU", system.cpu, system.cpuLevel)
             figure("RAM", system.memory, system.memoryLevel)
             figure("Disk", system.diskActivity, system.diskActivityLevel)
-                .help("Disk activity: how busy the disks were (DSM Resource Monitor › Disk › Utilization)")
+                .help("Disk activity: how busy the NAS's disks were, all drives together")
             Spacer(minLength: 0)
         }
     }
