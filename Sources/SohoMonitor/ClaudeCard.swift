@@ -12,11 +12,13 @@ struct ClaudeCard: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Claude").font(.system(size: 15, weight: .semibold))
-                    Spacer()
+                // The other cards' header (icon in a tinted circle, title); no single figure: the spinner while it
+                // refreshes stands where theirs is.
+                HStack(alignment: .center, spacing: 8) {
+                    MetricHeader(symbol: "sparkle", title: "Claude", figure: "", tint: CardColor.claude, compact: true)
                     if model.isRefreshing { ProgressView().controlSize(.mini) }
                 }
+                .accessibilityElement(children: .combine)
                 ForEach(Array(model.config.accounts.enumerated()), id: \.element) { index, account in
                     if index > 0 { Divider().opacity(0.5) }
                     ClaudeAccountBlock(

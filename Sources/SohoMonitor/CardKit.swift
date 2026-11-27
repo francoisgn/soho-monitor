@@ -13,6 +13,8 @@ enum CardColor {
     static let disk = Color.orange
     static let network = Color.cyan
     static let nas = Color.indigo
+    /// The Claude gauge's colour in the app icon.
+    static let claude = Color.purple
     static let warning = Color.orange
     static let critical = Color.red
 
