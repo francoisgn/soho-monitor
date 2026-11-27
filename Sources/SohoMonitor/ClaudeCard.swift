@@ -2,7 +2,8 @@ import SohoMonitorCore
 import SwiftUI
 
 /// The Claude card: one block per profile, in configuration order. A bar with the weekly limit (all models), then
-/// donuts with the 5-hour session and each per-model weekly limit. Colours come from the server's severity.
+/// one line per other limit (5-hour session, per-model weekly): small ring, percent, name, time to reset. Colours
+/// come from `UsageLimit.reading(now:)`: pace, 90 % and the server's severity.
 struct ClaudeCard: View {
     let model: ClaudeUsageModel
     let onDrag: (DesktopPanelController.DragPhase) -> Void
@@ -44,16 +45,22 @@ struct ClaudeCard: View {
     }
 }
 
-/// One profile: label, weekly bar, percent and reset; donuts below; then its state (waiting, problem, stale).
+/// One profile: label, weekly bar, percent and reset; one line per other limit below; then its state (waiting,
+/// problem, stale).
 private struct ClaudeAccountBlock: View {
     let account: ClaudeAccount
     let state: ClaudeAccountState
     let refreshMinutes: Int
     let now: Date
 
+    /// Two columns: a third limit wraps to a second line instead of overflowing the card.
+    private static let columns = [
+        GridItem(.flexible(), spacing: 12, alignment: .leading), GridItem(.flexible(), alignment: .leading),
+    ]
+
     var body: some View {
         let stale = state.isStale(now: now, refreshMinutes: refreshMinutes)
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(account.label).font(.system(size: 13, weight: .semibold)).lineLimit(1)
@@ -64,30 +71,33 @@ private struct ClaudeAccountBlock: View {
                 }
                 .frame(width: 74, alignment: .leading)
                 if let weekly = state.usage?.weekly {
-                    UsageBar(limit: weekly)
+                    UsageBar(limit: weekly, now: now)
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(ResetFormat.percent(weekly.percent))
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(UsageColor.of(weekly.severity))
-                        Text(ResetFormat.relative(weekly.resetsAt, now: now))
+                        Text(ResetFormat.short(weekly.resetsAt, now: now))
                             .font(.system(size: 10.5, weight: .medium, design: .rounded))
                             .foregroundStyle(.secondary)
                     }
                     .monospacedDigit()
-                    .frame(width: 70, alignment: .trailing)
-                    .help("Weekly limit, all models")
+                    .frame(width: 44, alignment: .trailing)
+                    .help(UsageText.help("Weekly limit, all models", weekly, now: now))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(UsageText.spoken("Weekly quota, all models", weekly, now: now))
                 } else {
                     Spacer()
                 }
             }
             if let usage = state.usage, usage.session != nil || !usage.models.isEmpty {
-                HStack(spacing: 18) {
+                LazyVGrid(columns: Self.columns, alignment: .leading, spacing: 6) {
                     if let session = usage.session {
-                        UsageDonut(title: "5h", limit: session, now: now).help("5-hour session")
+                        UsageLine(
+                            title: "5h", help: "5-hour session", spoken: "5-hour quota", limit: session, now: now)
                     }
                     ForEach(usage.models, id: \.model) { scoped in
-                        UsageDonut(title: scoped.model, limit: scoped.limit, now: now)
-                            .help("Weekly limit, \(scoped.model) only")
+                        UsageLine(
+                            title: scoped.model, help: "Weekly limit, \(scoped.model) only",
+                            spoken: "\(scoped.model) weekly quota", limit: scoped.limit, now: now)
                     }
                 }
                 .padding(.leading, 84)
@@ -116,12 +126,12 @@ private struct ClaudeAccountBlock: View {
     }
 }
 
-/// Server severity → Apple system colour.
+/// Reading → Apple system colour: green on pace, yellow ahead of it, red at 90 % or the server's critical.
 enum UsageColor {
-    static func of(_ severity: UsageSeverity) -> Color {
-        switch severity {
+    static func of(_ reading: UsageSeverity) -> Color {
+        switch reading {
         case .normal: .green
-        case .warning: .orange
+        case .warning: .yellow
         case .critical: .red
         }
     }
@@ -130,11 +140,12 @@ enum UsageColor {
 /// A thin glass capsule filled to the limit's share.
 private struct UsageBar: View {
     let limit: UsageLimit
+    let now: Date
 
     var body: some View {
         GeometryReader { proxy in
             Capsule()
-                .fill(UsageColor.of(limit.severity).gradient)
+                .fill(UsageColor.of(limit.reading(now: now)).gradient)
                 .frame(width: max(limit.percent > 0 ? 4 : 0, proxy.size.width * limit.fraction))
         }
         .frame(height: 10)
@@ -151,35 +162,41 @@ private struct UsageBar: View {
     }
 }
 
-/// A small ring with the percent in its centre, the title and the reset under it.
-private struct UsageDonut: View {
+/// One limit on one line: a small ring, the percent, the limit's name and the time to its reset.
+private struct UsageLine: View {
     let title: String
+    let help: String
+    let spoken: String
     let limit: UsageLimit
     let now: Date
 
     var body: some View {
-        VStack(spacing: 3) {
+        HStack(spacing: 6) {
             ZStack {
-                Circle().stroke(.black.opacity(0.18), lineWidth: 5)
+                Circle().stroke(.black.opacity(0.18), lineWidth: 3.5)
                 Circle()
                     .trim(from: 0, to: limit.fraction)
                     .stroke(
-                        UsageColor.of(limit.severity).gradient, style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        UsageColor.of(limit.reading(now: now)).gradient,
+                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                Text(ResetFormat.percent(limit.percent))
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
             }
-            .frame(width: 44, height: 44)
+            .frame(width: 16, height: 16)
             .animation(.smooth, value: limit.percent)
-            Text(title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
-            Text(ResetFormat.relative(limit.resetsAt, now: now))
-                .font(.system(size: 10, weight: .medium, design: .rounded))
+            Text(ResetFormat.percent(limit.percent))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).lineLimit(1)
+            Text(ResetFormat.short(limit.resetsAt, now: now))
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.tertiary)
                 .lineLimit(1)
+                .layoutPriority(1)
         }
-        .frame(minWidth: 64)
+        .help(UsageText.help(help, limit, now: now))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(UsageText.spoken(spoken, limit, now: now))
     }
 }
