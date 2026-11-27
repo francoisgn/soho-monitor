@@ -26,7 +26,7 @@ enum CardColor {
     }
 }
 
-/// A glass card. Under Reduce Transparency it falls back to an opaque window-coloured background.
+/// A glass card, drawn with the tile opacity picked in the menu (see `tileBackground`).
 struct GlassCard<Content: View>: View {
     var accent: Color
     var cornerRadius: CGFloat = 24
@@ -36,38 +36,54 @@ struct GlassCard<Content: View>: View {
     var padding = EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16)
     @ViewBuilder var content: Content
 
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         VStack(alignment: .leading, spacing: spacing) { content }
             .padding(padding)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background {
-                if reduceTransparency {
-                    shape.fill(Color(nsColor: .windowBackgroundColor))
-                        .overlay(shape.strokeBorder(.separator, lineWidth: 1))
-                } else {
-                    // A subtle accent sheen from the top-left corner over the glass.
-                    shape.fill(
-                        LinearGradient(
-                            colors: [accent.opacity(0.16), .clear, .white.opacity(0.03)], startPoint: .topLeading,
-                            endPoint: .bottomTrailing))
-                }
-            }
-            .modifier(GlassBackground(enabled: !reduceTransparency, cornerRadius: cornerRadius))
+            // A subtle accent sheen from the top-left corner over the glass.
+            .tileBackground(cornerRadius: cornerRadius, sheen: [accent.opacity(0.16), .clear, .white.opacity(0.03)])
     }
 }
 
-private struct GlassBackground: ViewModifier {
-    let enabled: Bool
+extension EnvironmentValues {
+    /// The tile opacity picked in the menu bar menu, set on the desktop panel's root view.
+    @Entry var tileOpacity: TileOpacity = .standard
+}
+
+extension View {
+    /// The background of a desktop panel tile: Liquid Glass, a window-coloured fill and a sheen (`sheen`, top-left to
+    /// bottom-right), as the environment's `tileOpacity` resolves them (`TileOpacity.style`). Under Reduce
+    /// Transparency: opaque, with a hairline border and no sheen, whatever the step.
+    func tileBackground(cornerRadius: CGFloat, sheen: [Color]) -> some View {
+        modifier(TileBackground(cornerRadius: cornerRadius, sheen: sheen))
+    }
+}
+
+private struct TileBackground: ViewModifier {
     let cornerRadius: CGFloat
+    let sheen: [Color]
+
+    @Environment(\.tileOpacity) private var opacity
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
-        if enabled {
-            content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius, style: .continuous))
+        let style = opacity.style(reduceTransparency: reduceTransparency)
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let fill = Color(nsColor: .windowBackgroundColor).opacity(style.backing)
+        let drawn = content.background {
+            if style.glass {
+                ZStack {
+                    shape.fill(fill)
+                    shape.fill(LinearGradient(colors: sheen, startPoint: .topLeading, endPoint: .bottomTrailing))
+                }
+            } else {
+                shape.fill(fill).overlay(shape.strokeBorder(.separator, lineWidth: 1))
+            }
+        }
+        if style.glass {
+            drawn.glassEffect(.regular, in: shape)
         } else {
-            content
+            drawn
         }
     }
 }
