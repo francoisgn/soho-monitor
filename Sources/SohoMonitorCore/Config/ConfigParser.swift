@@ -88,13 +88,14 @@ struct Reader {
             error(root, "config", "expected a mapping at the top level")
             return .empty
         }
-        let top = entries(mapping, at: "", known: ["disk", "claude"])
+        let top = entries(mapping, at: "", known: ["disk", "claude", "synology"])
         let claude = top["claude"].map { readClaude($0) } ?? .disabled
+        let synology = top["synology"].flatMap { readSynology($0) }
         guard let disk = top["disk"] else {
             error(root, "disk", "required section is missing")
             return .empty
         }
-        return AppConfig(disk: readDisk(disk), claude: claude)
+        return AppConfig(disk: readDisk(disk), claude: claude, synology: synology)
     }
 
     mutating func readDisk(_ node: Node) -> DiskConfig {
