@@ -86,6 +86,12 @@ enum MemoryFixtures {
         #expect(MemoryPressure.critical.label == "Pressure critical")
     }
 
+    @Test func shortLabelsFitTheCompactPill() {
+        #expect(MemoryPressure.normal.shortLabel == "Normal")
+        #expect(MemoryPressure.warning.shortLabel == "Warning")
+        #expect(MemoryPressure.critical.shortLabel == "Critical")
+    }
+
     @Test func criticalStaysUntilNormal() {
         var tracker = MemoryPressureTracker(initial: nil)
         #expect(tracker.level == nil)

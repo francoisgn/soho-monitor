@@ -115,9 +115,10 @@ Two glass cards above the disk card on the desktop panel:
   needs two samples.
 - **Memory**: used share and "used of total" (used = app + wired + compressed, the Activity Monitor-like split of
   `host_statistics64`; cached files and purgeable memory are not counted as used), breakdown on hover, memory
-  pressure pill (event driven: `DispatchSource` memory-pressure source, seeded by
-  `kern.memorystatus_vm_pressure_level`), swap used (`vm.swapusage`). Sizes in binary units (16 GB = 16 GiB). The
-  bar turns orange / red with the pressure level, or above 85 % / 95 % used when the pressure is unknown.
+  pressure pill ("Normal" / "Warning" / "Critical", with a coloured dot; event driven: `DispatchSource`
+  memory-pressure source, seeded by `kern.memorystatus_vm_pressure_level`), swap used (`vm.swapusage`). Sizes in
+  binary units (16 GB = 16 GiB). The bar turns orange / red with the pressure level, or above 85 % / 95 % used when
+  the pressure is unknown.
 - **Sampling**: once per second, and only while the panel is on screen: hidden, or fully covered by windows
   (`NSWindow` occlusion state), nothing is sampled. After the Mac wakes, the first CPU sample is dropped rather than averaged over the sleep. A
   metric that cannot be read shows a dash and the reason in a red pill, never a fake 0 %.
