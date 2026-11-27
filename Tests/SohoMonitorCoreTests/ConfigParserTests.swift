@@ -166,6 +166,9 @@ import Testing
         #expect(result.config.disk.categories.count >= 10)
         #expect(result.config.disk.categories.contains { $0.source == .iosRuntimes })
         #expect(result.config.claude.accounts.map(\.label) == ["Work", "Personal"])
+        #expect(
+            result.config.synology
+                == SynologyConfig(host: "nas.example.lan", port: 5001, user: "<user>", keychainItem: "synology"))
     }
 }
 

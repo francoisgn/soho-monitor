@@ -30,8 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     let system = SystemModel()
     private var panel: DesktopPanelController?
+    private let credentialWindow = CredentialWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let synology = model.synology
+        synology.presentSetup = { [weak self] in self?.credentialWindow.show(model: synology) }
         model.start()
         system.start()
         let panel = DesktopPanelController(model: model, system: system)
@@ -81,6 +84,9 @@ private struct MenuContent: View {
         Button("Rescan Now") { model.rescanNow() }
             .keyboardShortcut("r")
             .disabled(model.isScanning || !model.configState.hasValidConfig)
+        if model.synology.isEnabled {
+            Button("Synology Credentials…") { model.synology.presentSetup() }
+        }
         Divider()
         Text("soho-monitor \(SohoMonitorCore.version)")
         Button("Quit") { NSApplication.shared.terminate(nil) }

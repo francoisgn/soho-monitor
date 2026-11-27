@@ -178,7 +178,7 @@ public final class InMemorySecretStore: SecretStore {
 
 /// Reads each secret lazily, once per session, and keeps it in memory; a save or a removal through the cache
 /// replaces or forgets it. A failed read is not remembered: the next call asks the store again.
-public final class SecretCache: Sendable {
+public final class SecretCache: SecretStore {
     private let store: any SecretStore
     private let cached = Mutex<[String: String]>([:])
 

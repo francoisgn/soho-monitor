@@ -18,6 +18,8 @@ final class AppModel {
     }
     /// The Claude card's state; refreshed only while the panel is visible.
     let claude = ClaudeUsageModel()
+    /// The NAS module: configuration and Keychain state (credential window).
+    let synology = SynologyModel()
 
     @ObservationIgnored private let store: SnapshotStore
     @ObservationIgnored private let coordinator: ScanCoordinator
@@ -66,6 +68,7 @@ final class AppModel {
         let previous = configState.hasValidConfig ? configState.config : nil
         configState.apply(ConfigFile.load(configURL))
         claude.apply(configState.config.claude)
+        synology.apply(configState.config.synology)
         guard configState.hasValidConfig, ConfigChange.reschedulesDisk(from: previous, to: configState.config) else {
             return
         }
