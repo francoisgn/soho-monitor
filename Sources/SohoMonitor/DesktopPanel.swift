@@ -26,7 +26,7 @@ final class DesktopPanelController {
         panel.isMovable = false  // moved by the drag gesture below, which also saves the position
 
         let host = NSHostingController(
-            rootView: DiskCard(
+            rootView: PanelStack(
                 model: model,
                 onDrag: { [weak self] phase in self?.drag(phase) },
                 onResetPosition: { [weak self] in self?.resetPosition() }))

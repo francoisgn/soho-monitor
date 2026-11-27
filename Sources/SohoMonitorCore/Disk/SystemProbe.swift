@@ -31,10 +31,16 @@ public protocol CommandRunning: Sendable {
     func run(_ executable: String, _ arguments: [String]) async throws -> CommandOutput
 }
 
+/// Runs a command with exactly the given environment (the app's own is not inherited).
+public protocol EnvironmentCommandRunning: Sendable {
+    func run(_ executable: String, _ arguments: [String], environment: [String: String]) async throws
+        -> CommandOutput
+}
+
 /// Runs commands with `Process` at background quality of service, the lowest class: the child gets the lowest CPU
 /// priority and its I/O may be throttled (Apple, Energy Efficiency Guide for Mac Apps, "Prioritize Work with Quality
 /// of Service Classes"), so a long `du` pass does not slow down the user's work.
-public struct ProcessRunner: CommandRunning {
+public struct ProcessRunner: CommandRunning, EnvironmentCommandRunning {
     public init() {}
 
     /// Stops every command still running (called when the app quits: a child `du` would otherwise outlive it).
@@ -43,9 +49,23 @@ public struct ProcessRunner: CommandRunning {
     }
 
     public func run(_ executable: String, _ arguments: [String]) async throws -> CommandOutput {
+        try await start(executable, arguments, environment: nil)
+    }
+
+    public func run(_ executable: String, _ arguments: [String], environment: [String: String]) async throws
+        -> CommandOutput
+    {
+        try await start(executable, arguments, environment: environment)
+    }
+
+    /// `environment: nil` inherits the app's environment.
+    private func start(_ executable: String, _ arguments: [String], environment: [String: String]?) async throws
+        -> CommandOutput
+    {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
+        if let environment { process.environment = environment }
         process.qualityOfService = .background
         process.standardInput = FileHandle.nullDevice
         let out = Pipe()
