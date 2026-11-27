@@ -326,7 +326,7 @@ private struct ConfigProblems: View {
 }
 
 /// Chips that wrap onto as many lines as needed.
-private struct FlowLayout: Layout {
+struct FlowLayout: Layout {
     var spacing: CGFloat
     var lineSpacing: CGFloat
 

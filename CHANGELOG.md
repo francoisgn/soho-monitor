@@ -7,6 +7,14 @@ Notable changes, newest first. Entries accumulate under "Unreleased" until the f
 
 ### Added
 
+- System module, CPU and memory (#3, #4, #5, #6): shared sampling engine (demand tokens, one timer only while a card
+  is on screen, 1 s minimum interval, no catch-up burst after sleep, failing metric shown as unavailable); card design
+  system (glass card with an opaque fallback under Reduce Transparency, large rounded figure, pills, thin bar,
+  sparkline, orange / red levels); CPU card (usage from Mach tick deltas, chip name, core counts and P/E split) and
+  memory card (used / total, app / wired / compressed / cached breakdown on hover, pressure from a dispatch source,
+  swap) above the disk card on the desktop panel.
+- Desktop panel anchored by its top-left corner (default: top-left of the main screen, under the menu bar; saved as
+  `panel.topLeft`, the old bottom-left `panel.origin` is dropped): it grows downward and stays inside the screen.
 - App icon (#50): stacked glass gauges (blue, orange, purple) on a night blue → indigo gradient, an Icon Composer
   package (`Resources/AppIcon.icon`) compiled by `actool` in `scripts/bundle-app.sh` into `Assets.car` (default,
   dark, tinted, clear) and `AppIcon.icns`; without `actool` the app is built with the generic icon and a warning.

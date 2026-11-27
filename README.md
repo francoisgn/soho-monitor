@@ -16,14 +16,15 @@
 
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
 widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: the **disk** and **Claude** modules
-work; the other modules are planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
+work, the **CPU and memory cards** are in; the other modules are planned, see the
+[issues](https://github.com/francoisgn/soho-monitor/issues).
 
 ## Features
 
 | Module | What it shows | Status |
 |---|---|---|
 | Disk | Usage of the startup volume by configurable groups and categories (YAML), segmented bar, legend, top 3 folders per group, free space thresholds | 🔵 migrating |
-| System | CPU, GPU, memory, network cards with a large figure, a thin bar, a history sparkline, busiest processes; optional menu bar indicators | ⚪ planned |
+| System | CPU and memory cards (large figure, thin bar, sparkline of the last 120 samples, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
 | Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account | ⚪ planned |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
 | Claude | Usage of your Claude plans, one block per Claude Code profile: weekly limit bar, 5-hour session and per-model weekly donuts, reset times, server severity colours | 🟢 done |
@@ -46,8 +47,10 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
 - **Card**: volume name, "X of Y used", free-space pill (orange / red under the configured thresholds), one
   continuous segmented bar (groups by size, `macOS` and `Other` last), legend chips with their size and ⚠︎ when a
   group was measured partially. Hover a segment or a chip for the detail of its categories; click a chip for the
-  group's three biggest folders (name, path, size, gauge). Drag the card to move it (position remembered),
-  double-click it to put it back in the bottom-left corner.
+  group's three biggest folders (name, path, size, gauge). Drag any card to move the panel, double-click one to put
+  it back in its default place: the top-left corner of the main screen, under the menu bar. The panel hangs from its
+  top-left corner (the one remembered), so it grows downward as cards are added or expand, and it is kept inside the
+  screen (a panel taller than the screen keeps its top visible).
 - **Menu**: summary line ("Macintosh HD: 183.9 GB free of 494.4 GB"), last update or "Scanning…", configuration or
   scan errors, Show / Hide Panel, Rescan Now, Quit.
 - **Scan**: every configured path is measured with `du -k -d 1` (one pass gives its size and its direct
@@ -92,6 +95,24 @@ are warnings.
 A category has either `paths` or `source`. Put the most specific paths first (DerivedData before
 `~/Library/Developer`). Quote a path that starts with a YAML indicator (`*`, `&`, `!`, `[`, `{`).
 
+## System module
+
+Two glass cards above the disk card on the desktop panel:
+
+![CPU and memory cards](docs/images/system-cards.png)
+
+- **CPU**: total usage of all cores (user + system + nice ticks over all ticks between two samples, from
+  `host_processor_info`), chip name (`machdep.cpu.brand_string`), core count and the split per performance level
+  (`hw.perflevelN`, e.g. "4P + 6E"); hover the figure for user / system. The first second shows "Sampling…": a rate
+  needs two samples.
+- **Memory**: used share and "used of total" (used = app + wired + compressed, the Activity Monitor-like split of
+  `host_statistics64`; cached files and purgeable memory are not counted as used), breakdown on hover, memory
+  pressure pill (event driven: `DispatchSource` memory-pressure source, seeded by
+  `kern.memorystatus_vm_pressure_level`), swap used (`vm.swapusage`). Sizes in binary units (16 GB = 16 GiB). The
+  bar turns orange / red with the pressure level, or above 85 % / 95 % used when the pressure is unknown.
+- **Sampling**: once per second, and only while the panel is on screen: hidden, or fully covered by windows
+  (`NSWindow` occlusion state), nothing is sampled. After the Mac wakes, the first CPU sample is dropped rather than averaged over the sleep. A
+  metric that cannot be read shows a dash and the reason in a red pill, never a fake 0 %.
 ## Claude module
 
 A second card in the desktop panel, shown when the configuration lists Claude Code profiles:
