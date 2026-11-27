@@ -57,7 +57,11 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
   bar. The panel hangs from its top-left corner (the one remembered), so it grows downward as cards are added or
   expand, and it is kept inside the screen (a panel taller than the screen keeps its top visible).
 - **Menu**: summary line ("Macintosh HD: 183.9 GB free of 494.4 GB"), last update or "Scanning…", configuration or
-  scan errors, Show / Hide Panel, Rescan Now, Quit.
+  scan errors, Show / Hide Panel, Tile Opacity, Rescan Now, Quit.
+- **Tile Opacity** (menu): Glass (default, the plain Liquid Glass look), Light Frost, Frosted, Solid or Opaque, applied
+  at once to every card of the desktop panel and remembered across launches. Nothing more transparent than
+  plain glass: its blur keeps the text legible over a busy wallpaper. With Reduce Transparency on (System Settings ›
+  Accessibility › Display), the cards are opaque whatever the choice.
 - **Scan**: every configured path is measured with `du -k -d 1` (one pass gives its size and its direct
   sub-folders) at background quality of service, every `scan_interval_minutes` (default 30) and on demand. One scan
   at a time, across processes too (a lock file next to the cache: `--scan` refuses while the app scans, and the

@@ -16,6 +16,11 @@ final class AppModel {
             claude.setVisible(panelVisible)
         }
     }
+    /// How opaque the desktop panel's tiles are, picked in the menu bar menu. A UI preference saved in UserDefaults,
+    /// like the panel's visibility and position, not a key of the YAML (which says what to monitor).
+    var tileOpacity: TileOpacity {
+        didSet { UserDefaults.standard.set(tileOpacity.rawValue, forKey: TileOpacity.defaultsKey) }
+    }
     /// The Claude card's state; refreshed only while the panel is visible.
     let claude = ClaudeUsageModel()
     /// The NAS module: configuration and Keychain state (credential window).
@@ -44,6 +49,7 @@ final class AppModel {
             scanner: DiskScanner(runner: ProcessRunner(), paths: GlobPathResolver(home: NSHomeDirectory())),
             lockURL: SnapshotStore.defaultLockURL)
         panelVisible = UserDefaults.standard.object(forKey: Self.panelVisibleKey) as? Bool ?? true
+        tileOpacity = TileOpacity(stored: UserDefaults.standard.object(forKey: TileOpacity.defaultsKey))
     }
 
     var disk: DiskConfig { configState.config.disk }

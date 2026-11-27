@@ -27,13 +27,7 @@ struct ClaudeCard: View {
         }
         .padding(EdgeInsets(top: 16, leading: 18, bottom: 14, trailing: 18))
         .frame(width: DiskCard.width, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [.white.opacity(0.10), .clear, .white.opacity(0.04)], startPoint: .topLeading,
-                endPoint: .bottomTrailing),
-            in: .rect(cornerRadius: 28)
-        )
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        .tileBackground(cornerRadius: 28, sheen: [.white.opacity(0.10), .clear, .white.opacity(0.04)])
         .contentShape(.rect(cornerRadius: 28))
         .onTapGesture(count: 2, perform: onResetPosition)
         .gesture(

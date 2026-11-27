@@ -1,3 +1,4 @@
+import SohoMonitorCore
 import SwiftUI
 
 /// The cards of the desktop panel, stacked from the top: CPU and memory, disk, then the cards of the enabled modules.
@@ -22,6 +23,7 @@ struct PanelStack: View {
                     .panelDraggable(onDrag: onDrag, onResetPosition: onResetPosition)
             }
         }
+        .environment(\.tileOpacity, model.tileOpacity)
     }
 }
 

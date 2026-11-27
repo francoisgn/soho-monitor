@@ -63,7 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 private struct MenuContent: View {
-    let model: AppModel
+    @Bindable var model: AppModel
 
     var body: some View {
         Text(model.menuSummary)
@@ -81,6 +81,13 @@ private struct MenuContent: View {
         Divider()
         Button(model.panelVisible ? "Hide Panel" : "Show Panel") { model.panelVisible.toggle() }
             .keyboardShortcut("p")
+        // The menu-style MenuBarExtra turns its content into menu items: a picker becomes a submenu with the current
+        // step checked, hence steps rather than a slider.
+        Picker("Tile Opacity", selection: $model.tileOpacity) {
+            ForEach(TileOpacity.allCases, id: \.self) { step in
+                Text(step == .standard ? "\(step.name) (default)" : step.name).tag(step)
+            }
+        }
         Button("Rescan Now") { model.rescanNow() }
             .keyboardShortcut("r")
             .disabled(model.isScanning || !model.configState.hasValidConfig)

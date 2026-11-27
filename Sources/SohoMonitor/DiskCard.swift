@@ -47,14 +47,8 @@ struct DiskCard: View {
         }
         .padding(EdgeInsets(top: 16, leading: 18, bottom: 14, trailing: 18))
         .frame(width: Self.width, alignment: .leading)
-        .background(
-            // A subtle top-left sheen over the glass, as on the widget.
-            LinearGradient(
-                colors: [.white.opacity(0.10), .clear, .white.opacity(0.04)], startPoint: .topLeading,
-                endPoint: .bottomTrailing),
-            in: .rect(cornerRadius: 28)
-        )
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        // A subtle top-left sheen over the glass, as on the widget.
+        .tileBackground(cornerRadius: 28, sheen: [.white.opacity(0.10), .clear, .white.opacity(0.04)])
         .contentShape(.rect(cornerRadius: 28))
         .onTapGesture(count: 2, perform: onResetPosition)
         .gesture(
