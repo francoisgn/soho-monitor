@@ -27,7 +27,7 @@ desktop panel. Configuration: one YAML file (`~/.config/soho-monitor/config.yaml
 | `Sources/SohoMonitor/` | SwiftUI app: `MenuBarExtra`, desktop panel (`NSPanel`), cards, design tokens |
 | `Tests/SohoMonitorCoreTests/` | Swift Testing (`import Testing`, `@Test`, `#expect`) |
 | `config/` | Example configuration, documented key by key |
-| `scripts/bundle-app.sh` | Release build and `.app` bundle (ad hoc signed) |
+| `scripts/bundle-app.sh` | Release build and `.app` bundle (Apple Development certificate if present, else ad hoc) |
 
 ## Build and tests
 
