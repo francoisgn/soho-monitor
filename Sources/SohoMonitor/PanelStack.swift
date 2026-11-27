@@ -16,6 +16,11 @@ struct PanelStack: View {
             if model.claude.isEnabled {
                 ClaudeCard(model: model.claude, onDrag: onDrag, onResetPosition: onResetPosition)
             }
+            if model.synology.isEnabled {
+                SynologyCard(model: model.synology)
+                    .frame(width: DiskCard.width)
+                    .panelDraggable(onDrag: onDrag, onResetPosition: onResetPosition)
+            }
         }
     }
 }

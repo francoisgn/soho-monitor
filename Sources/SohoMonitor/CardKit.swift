@@ -12,6 +12,7 @@ enum CardColor {
     static let memory = Color.green
     static let disk = Color.orange
     static let network = Color.cyan
+    static let nas = Color.indigo
     static let warning = Color.orange
     static let critical = Color.red
 

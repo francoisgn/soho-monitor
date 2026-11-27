@@ -5,10 +5,13 @@ public struct AppConfig: Sendable, Equatable {
     public var disk: DiskConfig
     /// `claude:` section; without it the Claude card is off.
     public var claude: ClaudeConfig
+    /// `synology:` section; nil when absent (the NAS card is off).
+    public var synology: SynologyConfig?
 
-    public init(disk: DiskConfig, claude: ClaudeConfig = .disabled) {
+    public init(disk: DiskConfig, claude: ClaudeConfig = .disabled, synology: SynologyConfig? = nil) {
         self.disk = disk
         self.claude = claude
+        self.synology = synology
     }
 
     /// Used until a valid file has been read: no category, defaults everywhere.

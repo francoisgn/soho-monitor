@@ -136,3 +136,40 @@ claude:
       config_dir: ~/.claude-work
     - label: Personal
       config_dir: ~/.claude-personal
+
+# Synology NAS (optional: without this section the NAS card is off). Read-only client of the DSM Web API, over HTTPS
+# only. The card offers "Set Up…" (also in the menu: Synology Credentials…) to type the password, test the
+# connection and save it in the macOS Keychain; it is never written in this file.
+synology:
+  # Host name or IP address of the NAS, nothing else (no https://, no port, no path).
+  host: nas.example.lan
+  # DSM HTTPS port (DSM default 5001). Plain HTTP is never used: the password would travel in clear.
+  port: 5001
+  # A dedicated DSM account for the monitor: read-only, no 2-factor authentication (an unattended app cannot
+  # answer an OTP), ideally allowed from the LAN only. Create it in DSM › Control Panel › User & Group.
+  user: <user>
+  # Name of the Keychain item that holds its password: service "soho-monitor", account = this name (default
+  # "synology"). Saved by the app, or from a shell (the command asks for the password; nothing is echoed):
+  #   security add-generic-password -s soho-monitor -a synology -T "$HOME/Applications/SohoMonitor.app" -w
+  # (-T lets the app read it without a prompt; without it macOS asks once: choose Always Allow.)
+  keychain_item: synology
+  # Seconds between two refreshes of the NAS data cards (storage, system, Docker: coming next), at least 60 (polling
+  # floor for a small NAS). After failures the wait doubles up to 10 minutes; a refused login stops polling until the
+  # password or this section changes.
+  interval_seconds: 60
+  # How the NAS's certificate is trusted. Without `tls:`, the system's trust store decides: a certificate from a
+  # public authority, valid and matching `host`. Otherwise, exactly one of:
+  #   pin_sha256         trust only this certificate, by the SHA-256 fingerprint of its leaf (64 hex digits, `:`
+  #                      allowed), even self-signed or expired. An expired pinned certificate still works and the card
+  #                      shows "certificate expired, pinned"; any other certificate is refused ("pinned certificate
+  #                      changed", with the new fingerprint: check it in DSM before pinning it). To read the
+  #                      fingerprint: Set Up… shows the one presented when trust fails, or
+  #                        openssl s_client -connect <host>:5001 </dev/null | openssl x509 -noout -fingerprint -sha256
+  #                      then compare it with DSM › Control Panel › Security › Certificate.
+  #   allow_self_signed  true: accept ANY certificate. Still encrypted, but anyone on the LAN can impersonate the NAS
+  #                      and receive the password; the card shows a permanent warning. Prefer pin_sha256.
+  # An expired certificate without a pin is refused: "certificate expired; renew it in DSM or pin its fingerprint".
+  # tls:
+  #   pin_sha256: "AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89"
+  #   # or
+  #   allow_self_signed: true
