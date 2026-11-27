@@ -98,9 +98,6 @@ struct MetricHeader: View {
     var tint: Color
     /// A smaller icon and figure and a tighter subtitle gap, for the compact CPU and memory cards.
     var compact = false
-    /// A short figure under the large one ("792.6 GB free"), at the end of the subtitle line; nil keeps the line as
-    /// it was.
-    var caption: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 1 : 4) {
@@ -120,26 +117,16 @@ struct MetricHeader: View {
                     .lineLimit(1)
                     .fixedSize()
             }
-            if let caption {
-                HStack(spacing: 8) {
-                    if let subtitle { subtitleText(subtitle) }
-                    Spacer(minLength: 0)
-                    FigureCaption(text: caption)
-                }
-            } else if let subtitle {
-                subtitleText(subtitle)
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(subtitle)
             }
         }
-    }
-
-    private func subtitleText(_ subtitle: String) -> some View {
-        Text(subtitle)
-            .font(.system(size: 11, weight: .medium))
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .help(subtitle)
     }
 }
 

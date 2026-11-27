@@ -51,6 +51,8 @@ enum NASFixtures {
         #expect(volume(total: 100, used: 30).free == 70)
         #expect(volume(total: 100, used: nil).free == nil)
         #expect(volume(total: nil, used: 30).free == nil)
+        // A zero-sized volume has no used share either ("—"): no "0 MB free" next to it.
+        #expect(volume(total: 0, used: 0).free == nil)
         // A used size above the total (DSM counts reserved space differently): nothing free, not a wrap-around.
         #expect(volume(total: 100, used: 130).free == 0)
     }

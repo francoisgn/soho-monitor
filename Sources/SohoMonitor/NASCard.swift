@@ -96,7 +96,8 @@ private struct NASDetails: View {
         HStack(spacing: 8) {
             identity
             Spacer(minLength: 0)
-            if let main, let free = Self.freeText(main) { FigureCaption(text: free) }
+            // Hidden from VoiceOver: the header element above already reads it.
+            if let main, let free = Self.freeText(main) { FigureCaption(text: free).accessibilityHidden(true) }
         }
         if let storage {
             ForEach(Array(storage.volumes.enumerated()), id: \.offset) { _, volume in
