@@ -121,8 +121,8 @@ disk:
 
 # Claude plan usage (optional: without this section, or with no account, the Claude card is off).
 # One block per Claude Code profile, in this order: a bar with the weekly limit (all models), then one line (ring,
-# percent, reset) per 5-hour session and per-model weekly limit. Figures come from Claude Code itself through a helper bundled with
-# the app (docs/adr/0001-claude-usage-source.md): it needs Node.js 18.14+ and Claude Code installed, and each profile
+# percent, reset) per 5-hour session and per-model weekly limit. Figures come from Claude Code itself through a
+# helper bundled with the app (docs/adr/0001-claude-usage-source.md): it needs Node.js 18.14+ and Claude Code installed, and each profile
 # logged in once (`CLAUDE_CONFIG_DIR=<config_dir> claude`, then /login). No prompt is sent, nothing is spent.
 claude:
   # Minutes between two refreshes (1 to 1440), only while the desktop panel is shown; showing the panel refreshes at

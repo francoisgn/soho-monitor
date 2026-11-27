@@ -34,8 +34,9 @@ behind Claude Code's `/usage`, fetched by the **unmodified `claude` binary** wit
   fields are ignored. The colour starts from the server's `severity` (`normal`, `warning`, `critical`), which the
   client never lowers. **Amendment (#78, operator request)**: the client raises it with a pace reading: warning
   when the share used is above the elapsed share of the window (start = `resets_at` minus the window length:
-  5 hours for `session`, 7 days for `weekly_all` and `weekly_scoped`, from the SDK typings "plan rate-limit
-  utilization windows (5-hour, 7-day, per-model)" and their `five_hour` / `seven_day` / `seven_day_opus` fields),
+  5 hours for `session`, 7 days for `weekly_all` and `weekly_scoped`; inferred, since a row has no length field:
+  the SDK typings name "plan rate-limit utilization windows (5-hour, 7-day, per-model)" and the legacy
+  `five_hour` / `seven_day` / `seven_day_opus` fields),
   critical at 90 % or more. No reset time or an unknown kind: no pace reading. This departs from the SDK's "a client
   never grades a row itself" in one direction only (stricter, never milder than the server).
 - Refresh: every `claude.refresh_minutes` (default 5) while the desktop panel is visible; showing it refreshes at once

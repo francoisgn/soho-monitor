@@ -21,10 +21,11 @@ public enum UsageSeverity: String, Sendable, Equatable, Comparable {
     public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rank < rhs.rank }
 }
 
-/// Window lengths per row kind. The server sends `resets_at` only, so a window starts one length before it.
-/// Source: `sdk.d.ts` of `@anthropic-ai/claude-agent-sdk` 0.3.332 (the pinned version): `usage_EXPERIMENTAL_…`
-/// returns "plan rate-limit utilization windows (5-hour, 7-day, per-model)", and its `five_hour`, `seven_day`,
-/// `seven_day_opus`, `seven_day_sonnet` fields put the per-model windows at 7 days (ADR 0001).
+/// Window lengths per row kind, **inferred**: a `limits[]` row has no length field, and the server sends `resets_at`
+/// only, so a window starts one length before it. Basis: `sdk.d.ts` of `@anthropic-ai/claude-agent-sdk` 0.3.332 (the
+/// pinned version): `usage_EXPERIMENTAL_…` returns "plan rate-limit utilization windows (5-hour, 7-day, per-model)",
+/// and its legacy `five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet` fields put the per-model windows at
+/// 7 days (ADR 0001). An unknown kind gets no length, hence no pace reading.
 public enum UsageWindow {
     /// `session`: 5 hours.
     public static let session: TimeInterval = 5 * 3600
