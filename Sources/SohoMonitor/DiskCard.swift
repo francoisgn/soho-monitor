@@ -124,6 +124,7 @@ struct DiskCard: View {
             if compact.hiddenCount > 0 {
                 LegendToggle(expanded: legendExpanded, hiddenCount: compact.hiddenCount) {
                     legendExpanded.toggle()
+                    hovered = nil  // a chip folded away under the pointer sends no exit
                 }
             }
         }
@@ -185,6 +186,8 @@ private struct SegmentedBar: View {
     var body: some View {
         GeometryReader { proxy in
             let segments = DiskBar.layout(groups: groups, free: free, scale: scale, width: proxy.size.width)
+            // A hover left over from a group gone after a rescan dims nothing.
+            let lit = segments.contains { $0.kind == hovered } ? hovered : nil
             ZStack(alignment: .leading) {
                 ForEach(segments, id: \.kind) { segment in
                     fill(segment)
@@ -192,7 +195,7 @@ private struct SegmentedBar: View {
                         .overlay(alignment: .leading) {
                             if segment.start > 0 { Rectangle().fill(.black.opacity(0.35)).frame(width: 1) }
                         }
-                        .opacity(hovered == nil || hovered == segment.kind ? 1 : 0.55)
+                        .opacity(lit == nil || lit == segment.kind ? 1 : 0.55)
                         .offset(x: segment.start)
                         .accessibilityElement()
                         .accessibilityLabel(segment.name)

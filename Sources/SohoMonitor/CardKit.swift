@@ -256,6 +256,13 @@ private struct PointerTracker: NSViewRepresentable {
         override func mouseMoved(with event: NSEvent) { report(event) }
         override func mouseExited(with event: NSEvent) { action?(nil) }
 
+        // Removed while under the pointer: no exit arrives, so report one, after the SwiftUI update that removed it.
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window == nil, let action else { return }
+            Task { @MainActor in action(nil) }
+        }
+
         private func report(_ event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
             action?(bounds.contains(point) ? point : nil)
