@@ -14,16 +14,18 @@
 > memory and network, and the services around the Mac (Synology NAS, UniFi network, Claude plan usage), in a
 > menu bar extra and a movable Liquid Glass desktop panel.
 
+![SoHo Monitor: CPU, memory, disk and Claude plan usage cards on the desktop panel](docs/images/social-preview.png)
+
 **TL;DR**: one SwiftUI app, configured by a YAML file you version with your dotfiles. It replaces an Übersicht
-widget (shell + JSX) with real glass, live sampling and no helper binaries. Status: the **disk** and **Claude** modules
-work, the **CPU and memory cards** are in; the other modules are planned, see the
-[issues](https://github.com/francoisgn/soho-monitor/issues).
+widget (shell + JSX) with real glass and live sampling; the only helper is a small Node script for the Claude card
+(official Claude Agent SDK). Status: the **disk**, **CPU / memory** and **Claude** cards work; Synology and UniFi are
+planned, see the [issues](https://github.com/francoisgn/soho-monitor/issues).
 
 ## Features
 
 | Module | What it shows | Status |
 |---|---|---|
-| Disk | Usage of the startup volume by configurable groups and categories (YAML), segmented bar, legend, top 3 folders per group, free space thresholds | 🔵 migrating |
+| Disk | Usage of the startup volume by configurable groups and categories (YAML), segmented bar, legend, top 3 folders per group, free space thresholds | 🟢 done |
 | System | CPU and memory cards (large figure, thin bar, sparkline of the last 120 samples, chip and core pills, memory pressure and swap) on the desktop panel; GPU, network, busiest processes and menu bar indicators to come | 🔵 in progress |
 | Synology | NAS volumes, health, load, containers, through the DSM API with a dedicated read-only account | ⚪ planned |
 | UniFi | WAN, devices, clients, throughput, through the UniFi Network local integration API | ⚪ planned |
