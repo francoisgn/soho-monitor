@@ -63,11 +63,12 @@ struct MemoryCard: View {
         guard let reading else { return [] }
         var pills: [InfoPill] = []
         if let pressure = reading.pressure {
-            // The short label keeps the pressure and swap pills on one line; the dot's colour and the hover name it.
+            // The short label keeps the pressure and swap pills on one line; hover and VoiceOver get the full name.
+            let full = "Memory \(pressure.label.lowercased())"
             pills.append(
                 InfoPill(
                     text: pressure.shortLabel, tint: CardColor.tint(reading.level, accent: CardColor.memory),
-                    help: "Memory \(pressure.label.lowercased())"))
+                    help: full, spoken: full))
         }
         if let swap = reading.swapText {
             pills.append(InfoPill(text: swap, help: reading.swap.map { "Swap file: \(MemoryFormat.short($0.total))" }))

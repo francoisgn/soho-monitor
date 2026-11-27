@@ -119,6 +119,8 @@ struct InfoPill: View {
     var text: String
     var tint: Color?
     var help: String?
+    /// What VoiceOver reads when the visible text is a shortened form (the compact pressure pill); else the text.
+    var spoken: String?
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -127,7 +129,7 @@ struct InfoPill: View {
             if let tint {
                 Circle().fill(tint.gradient).frame(width: 6, height: 6)
             }
-            Text(text).truncationMode(.tail)
+            Text(text).truncationMode(.tail).accessibilityLabel(spoken ?? text)
         }
         .font(.system(size: 10.5, weight: .medium, design: .rounded))
         .monospacedDigit()
