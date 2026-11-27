@@ -81,7 +81,7 @@
   "readme": {
     "badges": true,
     "image": false,
-    "architecture": "ascii",
+    "architecture": "excalidraw",
     "progress": false,
     "quickstart": true,
     "contributing": true

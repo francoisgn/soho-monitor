@@ -10,8 +10,9 @@ Deviations from the Belayline harness, each with its reason. They win over `.har
 
 - **No dashboard, FinOps, stewards, compliance reviewers, merge gate, operator decisions file or CodeRabbit.**
   Reason: one maintainer, a small app; their cost exceeds their value here.
-- **README**: hand-written with an ASCII architecture diagram and a feature/status table instead of the Excalidraw
-  diagram and generated progress table (`README-STANDARD.md` not vendored). Reason: small repository.
+- **README**: hand-written, with a feature/status table instead of the generated progress table
+  (`README-STANDARD.md` not vendored). Reason: small repository. Its Excalidraw diagrams live in `docs/diagrams/`
+  (`.excalidraw` source and SVG export, `scripts/export-diagrams.sh`).
 - **Commits**: `<zone>: <message>` (see `CLAUDE.md`). Reason: the maintainer's convention across repositories.
 - **Agent naming** (`ORCHESTRATION.md` §7) is optional; the `Claude-Session:` trailer identifies the session.
 - **Branch types**: `bootstrap` is allowed in addition to the harness types (`.harness/config.json`).
