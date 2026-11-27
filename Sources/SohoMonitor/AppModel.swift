@@ -22,6 +22,22 @@ final class AppModel {
     var tileOpacity: TileOpacity {
         didSet { UserDefaults.standard.set(tileOpacity.rawValue, forKey: TileOpacity.defaultsKey) }
     }
+    /// How opaque the whole desktop panel is, picked in the menu bar menu; saved in UserDefaults like `tileOpacity`.
+    var panelOpacity: PanelOpacity {
+        didSet { UserDefaults.standard.set(panelOpacity.rawValue, forKey: PanelOpacity.defaultsKey) }
+    }
+    /// System Settings › Accessibility › Display, kept current from `start()`: either one shows the panel in full
+    /// whatever `panelOpacity` says (`PanelOpacity.alpha`).
+    private(set) var increaseContrast = false
+    private(set) var reduceTransparency = false
+    /// The alpha the desktop panel window takes.
+    var panelAlpha: Double {
+        panelOpacity.alpha(increaseContrast: increaseContrast, reduceTransparency: reduceTransparency)
+    }
+    /// The panel is shown in full because of an accessibility setting, not because 100 % is picked.
+    var panelOpacityOverridden: Bool {
+        panelOpacity.isOverridden(increaseContrast: increaseContrast, reduceTransparency: reduceTransparency)
+    }
     /// The Claude card's state; refreshed only while the panel is visible.
     let claude = ClaudeUsageModel()
     /// The NAS module: configuration, Keychain state (credential window) and the card's data, polled only while the
@@ -32,6 +48,7 @@ final class AppModel {
     @ObservationIgnored private let coordinator: ScanCoordinator
     @ObservationIgnored private var scheduleTask: Task<Void, Never>?
     @ObservationIgnored private var watchTask: Task<Void, Never>?
+    @ObservationIgnored private var displayOptionsObserver: NSObjectProtocol?
     @ObservationIgnored private var configFingerprint: FileFingerprint?
     /// End of the last scan attempt, failed ones included: a failure waits one interval before the next try.
     @ObservationIgnored private var lastAttempt: Date?
@@ -52,6 +69,7 @@ final class AppModel {
             lockURL: SnapshotStore.defaultLockURL)
         panelVisible = UserDefaults.standard.object(forKey: Self.panelVisibleKey) as? Bool ?? true
         tileOpacity = TileOpacity(stored: UserDefaults.standard.object(forKey: TileOpacity.defaultsKey))
+        panelOpacity = PanelOpacity(stored: UserDefaults.standard.object(forKey: PanelOpacity.defaultsKey))
     }
 
     var disk: DiskConfig { configState.config.disk }
@@ -64,6 +82,7 @@ final class AppModel {
         synology.setVisible(panelVisible)
         schedule()
         watchConfig()
+        watchDisplayOptions()
     }
 
     func rescanNow() {
@@ -98,6 +117,29 @@ final class AppModel {
                 guard let self else { return }
                 if FileFingerprint(url: self.configURL) != self.configFingerprint { self.reloadConfig() }
             }
+        }
+    }
+
+    /// Reads the accessibility display options now and whenever they change: AppKit posts the change on the workspace
+    /// notification centre (`NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification`, NSAccessibility.h).
+    private func watchDisplayOptions() {
+        readDisplayOptions()
+        guard displayOptionsObserver == nil else { return }
+        displayOptionsObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.readDisplayOptions() }
+        }
+    }
+
+    private func readDisplayOptions() {
+        let workspace = NSWorkspace.shared
+        // Assigned only on a change: the notification also fires for options this does not read (Reduce Motion…).
+        if workspace.accessibilityDisplayShouldIncreaseContrast != increaseContrast {
+            increaseContrast = workspace.accessibilityDisplayShouldIncreaseContrast
+        }
+        if workspace.accessibilityDisplayShouldReduceTransparency != reduceTransparency {
+            reduceTransparency = workspace.accessibilityDisplayShouldReduceTransparency
         }
     }
 

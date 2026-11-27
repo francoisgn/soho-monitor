@@ -14,6 +14,12 @@ Notable changes, newest first. Entries accumulate under "Unreleased" until the f
   missing not asked again in the session; new keys `synology.sections`, `synology.expected_stopped`,
   `synology.update_interval_hours`; parsers tested against anonymised answers of a real DSM 7.1.1 NAS;
   `SOHO_MONITOR_NAS_DEMO` plays recorded answers back for screenshots.
+- Panel Opacity (#86): a menu bar submenu (100% default, 85, 70, 55, 40, 30%) that fades the whole desktop panel,
+  text included (window alpha, saved as `panel.opacity`, tolerant reading: clamped to 30...100 and snapped to a
+  step); shown at 100% under Increase Contrast or Reduce Transparency, and the menu says so. Combines with Tile
+  Opacity.
+- Tile Opacity (#77, #81): a menu bar submenu (Glass default, Light Frost, Frosted, Solid, Opaque) for the desktop
+  tiles' backgrounds, every card included (saved as `panel.tileOpacity`); opaque under Reduce Transparency.
 - System module, CPU and memory (#3, #4, #5, #6): shared sampling engine (demand tokens, one timer only while a card
   is on screen, 1 s minimum interval, no catch-up burst after sleep, failing metric shown as unavailable); card design
   system (glass card with an opaque fallback under Reduce Transparency, large rounded figure, pills, thin bar,
