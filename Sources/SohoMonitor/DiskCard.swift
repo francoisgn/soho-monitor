@@ -1,7 +1,7 @@
 import SohoMonitorCore
 import SwiftUI
 
-/// The disk card: volume, used / total, free-space pill, one continuous segmented bar, legend chips, the top 3
+/// The disk card: header (icon, "Disk", used share), used / total, free-space pill, one continuous segmented bar, legend chips, the top 3
 /// folders of the selected group, and the scan status. Native Liquid Glass (macOS 26).
 /// Hovering the bar or a chip highlights that segment and puts its name, size and share in the header; the legend
 /// shows the biggest groups only, a chip unfolds the rest until the panel is hidden.
@@ -36,6 +36,9 @@ struct DiskCard: View {
                 }
             } else {
                 MetricHeader(symbol: "internaldrive", title: "Disk", figure: "—", tint: CardColor.disk, compact: true)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Disk")
+                    .accessibilityValue("unavailable")
                 Text(model.isScanning ? "First scan in progress…" : "No disk data yet")
                     .font(.callout).foregroundStyle(.secondary)
             }
@@ -71,8 +74,8 @@ struct DiskCard: View {
 
     /// The CPU and memory cards' header (icon, "Disk", used share as the large figure), then "X of Y used" and the
     /// free-space pill. While a segment is hovered, its line replaces "X of Y used"; both stay in the layout (one
-    /// hidden) so the card keeps its size. The volume name is left to VoiceOver: on the startup disk it repeats
-    /// "Disk".
+    /// hidden) so the card keeps its size. The volume name is not shown, to keep the system cards' header (operator
+    /// request, #69); VoiceOver reads it, and the menu bar line still shows it.
     private func header(_ snapshot: DiskSnapshot, hoverText: String?, groups: [DiskGroup]) -> some View {
         let figure = PercentFormat.whole(DiskSummary.usedFraction(of: snapshot))
         return VStack(alignment: .leading, spacing: 6) {
