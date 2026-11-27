@@ -59,7 +59,8 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
   The top 3 of a group are the direct sub-folders of its paths, each net of what was counted at or below it.
 - **Full Disk Access**: without it, protected folders (Mail, Messages, other apps' containers) are read partially:
   their chip shows ⚠︎ and the footer says so. Grant it to `SohoMonitor.app` in System Settings › Privacy & Security ›
-  Full Disk Access. An ad hoc signature changes at every build: grant it again after reinstalling.
+  Full Disk Access. Signed with your Apple Development certificate (found in the keychain), the grant survives
+  rebuilds; an ad hoc signature (no certificate) changes at every build and needs it again.
 - **Headless scan**: `SohoMonitor.app/Contents/MacOS/SohoMonitor --scan` runs one scan with the current
   configuration, writes the cache and prints the groups (useful to check the figures, or to fill the cache from a
   terminal that already has disk access).
@@ -127,7 +128,7 @@ Two glass cards above the disk card on the desktop panel:
 | `Sources/SohoMonitor/` | SwiftUI app: menu bar extra, desktop panel, cards |
 | `Tests/SohoMonitorCoreTests/` | Swift Testing suites |
 | `config/` | Example configuration |
-| `scripts/bundle-app.sh` | Release build → `build/SohoMonitor.app` (menu bar app, ad hoc signature) |
+| `scripts/bundle-app.sh` | Release build → `build/SohoMonitor.app` (menu bar app, Apple Development certificate if present, else ad hoc) |
 | `.harness/`, `.claude/`, `CLAUDE.md`, `AGENTS.md` | Rules for the coding agents ([Belayline](https://github.com/francoisgn/belayline-agentic-harness)) |
 
 ## Quick start
