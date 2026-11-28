@@ -193,9 +193,9 @@ enum Palette {
 }
 
 /// One continuous thin capsule with `ThinBar`'s height and track (CPU, memory, NAS and Claude bars): adjoining segments
-/// split by a hairline, no gloss or border. Drawn from `DiskBar.layout`, which the hover test reads too, so the highlighted segment is the one
-/// under the pointer. The pointer area reaches a few points above and below the bar, which alone is too thin to aim
-/// at.
+/// split by a hairline, no gloss or border. Drawn from `DiskBar.layout`, which the hover test reads too, so the
+/// highlighted segment is the one under the pointer. The pointer area reaches a few points above and below the bar,
+/// which alone is too thin to aim at.
 private struct SegmentedBar: View {
     /// Points above and below the bar that still hover it.
     static let pointerSlop: CGFloat = 5
