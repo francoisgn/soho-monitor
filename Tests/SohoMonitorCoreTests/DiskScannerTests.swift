@@ -129,6 +129,27 @@ private let diskutilOutputs: [String: CommandOutput] = [
         #expect(!s.categories[0].fullDiskAccessDenied)
     }
 
+    @Test func aRootOwnedFolderIsNamedWithoutAskingForFullDiskAccess() async throws {
+        // End to end, from du's stderr to the footer: the only refusal is POSIX (EACCES), as with FDA granted.
+        let locked = "/Users/me/Library/Application Support/Vendor/updater/1234.run"
+        var outputs = diskutilOutputs
+        outputs[du("/Users/me/Library/Application Support")] = out(
+            "50\t/Users/me/Library/Application Support\n", "du: \(locked): Permission denied\n", status: 1)
+        let scanner = DiskScanner(
+            runner: FakeRunner(outputs),
+            paths: FakePaths(matches: ["~/Library/Application Support": ["/Users/me/Library/Application Support"]]))
+        let s = try await scanner.scan(
+            DiskConfig(categories: [
+                DiskCategory(
+                    group: "App data", label: "Other apps", source: .paths(["~/Library/Application Support"]))
+            ]))
+        let note = DiskSummary.partialNote(of: s.categories)
+        #expect(note == .unreadable([locked]))
+        #expect(
+            note?.footer(home: "/Users/me")
+                == "not readable by your user: ~/Library/Application Support/Vendor/…/1234.run")
+    }
+
     @Test func diskutilFailureFailsTheScan() async {
         var outputs = diskutilOutputs
         outputs[FakeRunner.key("/usr/sbin/diskutil", ["info", "-plist", "/"])] = out("", "boom", status: 1)

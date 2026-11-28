@@ -146,9 +146,22 @@ private func snapshot(_ categories: [CategoryUsage], total: Int64 = 500 * gb, fr
     @Test func partialWithoutAnAccessErrorIsNeitherKind() {
         // simctl missing: the iOS runtimes are unknown, which no permission fixes.
         let note = DiskSummary.partialNote(of: [CategoryUsage(group: "Dev", label: "iOS", bytes: 0, partial: true)])
-        #expect(note == .incomplete)
+        #expect(note == .incomplete(unreadable: []))
         #expect(note?.footer(home: home) == "partial: some sizes could not be measured")
         #expect(note?.footer(home: home).contains("Full Disk Access") == false)
+    }
+
+    @Test func anUnknownSizeIsNotHiddenByUnreadableFolders() {
+        // simctl missing in one category, a root-owned folder in another: the unknown size keeps its warning, the
+        // folders stay listed in the detail.
+        let note = DiskSummary.partialNote(of: [
+            CategoryUsage(group: "Dev", label: "iOS", bytes: 0, partial: true),
+            CategoryUsage(group: "A", label: "A", bytes: 1, partial: true, unreadable: [locked]),
+        ])
+        #expect(note == .incomplete(unreadable: [locked]))
+        #expect(note?.isWarning == true)
+        #expect(note?.footer(home: home) == "partial: some sizes could not be measured")
+        #expect(note?.detail(home: home).contains("~/Library/Application Support/Vendor/updater/1234.run") == true)
     }
 
     @Test func groupsCarryTheirOwnNote() {

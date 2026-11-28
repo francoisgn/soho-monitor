@@ -91,8 +91,8 @@ public enum PartialNote: Sendable, Equatable {
     case fullDiskAccess(unreadable: [String])
     /// Only POSIX permissions refused: these folders are not readable by the user, whatever the privacy settings.
     case unreadable([String])
-    /// Partial for another reason (no `simctl`): no permission fixes it.
-    case incomplete
+    /// Partial for another reason (no `simctl`): no permission fixes it. POSIX-unreadable folders, if any, come along.
+    case incomplete(unreadable: [String])
 
     static let posixHeading =
         "Folders not readable by your user (POSIX permissions; Full Disk Access does not change them):"
@@ -117,7 +117,8 @@ public enum PartialNote: Sendable, Equatable {
             switch self {
             case .fullDiskAccess(let folders): ["Some folders need Full Disk Access to be measured."] + listing(folders)
             case .unreadable(let folders): listing(folders)
-            case .incomplete: ["Some sizes could not be measured (iOS runtimes need Xcode's simctl)."]
+            case .incomplete(let folders):
+                ["Some sizes could not be measured (iOS runtimes need Xcode's simctl)."] + listing(folders)
             }
         return lines.joined(separator: "\n")
     }
@@ -193,13 +194,15 @@ public enum DiskSummary {
     }
 
     /// Why the scan of these categories is partial, nil when it is complete. A Full Disk Access refusal wins (it is
-    /// the one the user can fix), with the POSIX-unreadable folders still carried for the detail.
+    /// the one the user can fix), then an unknown size (a partial category with no refusal named, e.g. no simctl),
+    /// then the POSIX-unreadable folders, which every case still carries for the detail.
     public static func partialNote(of categories: [CategoryUsage]) -> PartialNote? {
         guard categories.contains(where: \.partial) else { return nil }
         var unreadable: [String] = []
         for folder in categories.flatMap(\.unreadable) where !unreadable.contains(folder) { unreadable.append(folder) }
         if categories.contains(where: \.fullDiskAccessDenied) { return .fullDiskAccess(unreadable: unreadable) }
-        return unreadable.isEmpty ? .incomplete : .unreadable(unreadable)
+        let unknown = categories.contains { $0.partial && !$0.fullDiskAccessDenied && $0.unreadable.isEmpty }
+        return unknown ? .incomplete(unreadable: unreadable) : .unreadable(unreadable)
     }
 
     /// Width of the full bar in bytes: the disk size, or more when `du` counted clones in full.
