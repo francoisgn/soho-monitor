@@ -27,7 +27,7 @@ disk:
   # "macOS" (the non-Data volumes of the startup container) and "Other" (used − macOS − everything counted) are
   # computed by the app: these two group names are reserved.
   # Without Full Disk Access for the app, protected folders (Mail, Messages, other apps' containers) are measured
-  # partially: their chip shows ⚠︎.
+  # partially: their chip shows ⚠︎. A folder your user cannot read (root-owned) is named in the footer instead.
   categories:
     - group: Dev
       label: Test simulators

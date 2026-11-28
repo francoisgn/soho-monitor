@@ -55,6 +55,129 @@ private func snapshot(_ categories: [CategoryUsage], total: Int64 = 500 * gb, fr
     }
 }
 
+@Suite struct DiskSnapshotAccessCacheTests {
+    @Test func accessFieldsRoundTrip() throws {
+        let s = snapshot([
+            CategoryUsage(
+                group: "App data", label: "Other apps", bytes: 1, partial: true, fullDiskAccessDenied: false,
+                unreadable: ["/Users/me/Library/Application Support/Vendor/locked"]),
+            CategoryUsage(group: "Mail", label: "Mail", bytes: 1, partial: true, fullDiskAccessDenied: true),
+        ])
+        let data = try DiskSnapshot.encoder.encode(s)
+        #expect(try DiskSnapshot.decoder.decode(DiskSnapshot.self, from: data) == s)
+    }
+
+    @Test func aCacheFromTheCurrentReleaseKeepsItsFullDiskAccessMessage() throws {
+        // Written before the two kinds were told apart: "partial" then meant "grant Full Disk Access".
+        let previous = Data(
+            """
+            {"updated": 1800000000, "duration": 1, "volume": "HD", "total": 10, "used": 4, "free": 6, "tops": [],
+             "categories": [{"group": "A", "label": "A", "bytes": 4, "partial": true},
+                            {"group": "B", "label": "B", "bytes": 0, "partial": false}]}
+            """.utf8)
+        let decoded = try DiskSnapshot.decoder.decode(DiskSnapshot.self, from: previous)
+        #expect(decoded.categories.map(\.fullDiskAccessDenied) == [true, false])
+        #expect(decoded.categories.allSatisfy { $0.unreadable.isEmpty })
+        #expect(DiskSummary.partialNote(of: decoded.categories) == .fullDiskAccess(unreadable: []))
+    }
+}
+
+@Suite struct PartialNoteTests {
+    private let home = "/Users/me"
+    private let locked = "/Users/me/Library/Application Support/Vendor/updater/1234.run"
+    private let other = "/Users/me/Library/Caches/root-owned"
+
+    @Test func completeScanHasNoNote() {
+        #expect(DiskSummary.partialNote(of: [CategoryUsage(group: "A", label: "A", bytes: 1)]) == nil)
+    }
+
+    @Test func onlyPermissionDeniedNamesTheFoldersWithoutAskingForFullDiskAccess() {
+        let note = DiskSummary.partialNote(of: [
+            CategoryUsage(group: "A", label: "A", bytes: 1, partial: true, unreadable: [locked]),
+            CategoryUsage(group: "B", label: "B", bytes: 1, partial: true, unreadable: [other, locked]),
+        ])
+        #expect(note == .unreadable([locked, other]))
+        let text = note?.footer(home: home) ?? ""
+        #expect(!text.contains("Full Disk Access"))
+        #expect(text == "not readable by your user: ~/Library/Application Support/Vendor/…/1234.run +1 more")
+        #expect(note?.isWarning == false)
+        #expect(
+            note?.detail(home: home)
+                == """
+                Folders not readable by your user (POSIX permissions; Full Disk Access does not change them):
+                ~/Library/Application Support/Vendor/updater/1234.run
+                ~/Library/Caches/root-owned
+                """)
+    }
+
+    @Test func oneUnreadableFolderIsNamedAlone() {
+        let note = DiskSummary.partialNote(of: [
+            CategoryUsage(group: "A", label: "A", bytes: 1, partial: true, unreadable: [other])
+        ])
+        #expect(note?.footer(home: home) == "not readable by your user: ~/Library/Caches/root-owned")
+    }
+
+    @Test func operationNotPermittedKeepsTheFullDiskAccessMessage() {
+        let note = DiskSummary.partialNote(of: [
+            CategoryUsage(group: "Mail", label: "Mail", bytes: 1, partial: true, fullDiskAccessDenied: true)
+        ])
+        #expect(note == .fullDiskAccess(unreadable: []))
+        #expect(note?.footer(home: home) == "partial: grant Full Disk Access to SohoMonitor")
+        #expect(note?.isWarning == true)
+        #expect(note?.detail(home: home) == "Some folders need Full Disk Access to be measured.")
+    }
+
+    @Test func bothKindsTheFullDiskAccessMessageWinsAndTheFoldersAreStillListed() {
+        let note = DiskSummary.partialNote(of: [
+            CategoryUsage(group: "A", label: "A", bytes: 1, partial: true, unreadable: [locked]),
+            CategoryUsage(group: "Mail", label: "Mail", bytes: 1, partial: true, fullDiskAccessDenied: true),
+        ])
+        #expect(note == .fullDiskAccess(unreadable: [locked]))
+        #expect(note?.footer(home: home) == "partial: grant Full Disk Access to SohoMonitor")
+        #expect(
+            note?.detail(home: home)
+                == """
+                Some folders need Full Disk Access to be measured.
+                Folders not readable by your user (POSIX permissions; Full Disk Access does not change them):
+                ~/Library/Application Support/Vendor/updater/1234.run
+                """)
+    }
+
+    @Test func partialWithoutAnAccessErrorIsNeitherKind() {
+        // simctl missing: the iOS runtimes are unknown, which no permission fixes.
+        let note = DiskSummary.partialNote(of: [CategoryUsage(group: "Dev", label: "iOS", bytes: 0, partial: true)])
+        #expect(note == .incomplete)
+        #expect(note?.footer(home: home) == "partial: some sizes could not be measured")
+        #expect(note?.footer(home: home).contains("Full Disk Access") == false)
+    }
+
+    @Test func groupsCarryTheirOwnNote() {
+        let s = snapshot([
+            CategoryUsage(group: "App data", label: "Other apps", bytes: 2 * gb, partial: true, unreadable: [locked]),
+            CategoryUsage(group: "Mail", label: "Mail", bytes: 1 * gb, partial: true, fullDiskAccessDenied: true),
+            CategoryUsage(group: "Dev", label: "Git", bytes: 3 * gb),
+        ])
+        let notes = Dictionary(uniqueKeysWithValues: DiskSummary.groups(of: s).map { ($0.name, $0.note) })
+        #expect(notes["App data"] == .unreadable([locked]))
+        #expect(notes["Mail"] == .fullDiskAccess(unreadable: []))
+        #expect(notes["Dev"] == .some(nil))
+    }
+
+    @Test(arguments: [
+        (
+            "/Users/me/Library/Application Support/Vendor/updater/1234.run",
+            "~/Library/Application Support/Vendor/…/1234.run"
+        ),
+        ("/Users/me/Library/Caches/root-owned", "~/Library/Caches/root-owned"),
+        ("/Users/me/a/b/c/d", "~/a/b/c/d"),
+        ("/Library/Application Support/Vendor/x/y/z", "/Library/Application Support/Vendor/…/z"),
+        ("/Users/me", "~"),
+    ])
+    func shortPathKeepsTheHeadAndTheLeaf(path: String, short: String) {
+        #expect(PathDisplay.short(path, home: "/Users/me") == short)
+    }
+}
+
 @Suite struct DiskSummaryTests {
     @Test func groupsAreSortedBySizeWithMacOSAndOtherLast() {
         let s = snapshot([

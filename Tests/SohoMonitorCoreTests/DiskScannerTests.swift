@@ -104,7 +104,8 @@ private let diskutilOutputs: [String: CommandOutput] = [
                 CategoryUsage(group: "Dev", label: "Xcode other", bytes: xcodeOther),
                 CategoryUsage(group: "Cloud", label: "Dropbox", bytes: 3 * 1024),
                 // ~/Library/Developer listed again: already counted, adds nothing.
-                CategoryUsage(group: "Mail", label: "Mail", bytes: 100 * 1024, partial: true),
+                CategoryUsage(
+                    group: "Mail", label: "Mail", bytes: 100 * 1024, partial: true, fullDiskAccessDenied: true),
                 CategoryUsage(group: "macOS", label: "macOS", bytes: macOS),
                 CategoryUsage(group: "Other", label: "Other", bytes: s.used - macOS - counted),
             ])
@@ -123,7 +124,9 @@ private let diskutilOutputs: [String: CommandOutput] = [
     @Test func unavailableSimctlCountsZeroAndFlagsPartial() async throws {
         let scanner = DiskScanner(runner: runner(simctl: out("", "xcrun: error", status: 1)), paths: paths)
         let s = try await scanner.scan(config)
+        // No Xcode is not a Full Disk Access problem.
         #expect(s.categories[0] == CategoryUsage(group: "Dev", label: "iOS runtimes", bytes: 0, partial: true))
+        #expect(!s.categories[0].fullDiskAccessDenied)
     }
 
     @Test func diskutilFailureFailsTheScan() async {

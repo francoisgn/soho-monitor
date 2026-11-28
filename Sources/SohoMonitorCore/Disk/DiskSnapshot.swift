@@ -5,14 +5,23 @@ public struct CategoryUsage: Codable, Sendable, Equatable {
     public var group: String
     public var label: String
     public var bytes: Int64
-    /// True when `du` could not read part of the category (no Full Disk Access): the figure is a lower bound.
+    /// True when part of the category could not be measured: the figure is a lower bound.
     public var partial: Bool
+    /// True when macOS privacy refused a folder (`Operation not permitted`): granting Full Disk Access fixes it.
+    public var fullDiskAccessDenied: Bool
+    /// Folders refused by POSIX permissions (`Permission denied`), at most `DiskTally.unreadableLimit`.
+    public var unreadable: [String]
 
-    public init(group: String, label: String, bytes: Int64, partial: Bool = false) {
+    public init(
+        group: String, label: String, bytes: Int64, partial: Bool = false, fullDiskAccessDenied: Bool = false,
+        unreadable: [String] = []
+    ) {
         self.group = group
         self.label = label
         self.bytes = bytes
         self.partial = partial
+        self.fullDiskAccessDenied = fullDiskAccessDenied
+        self.unreadable = unreadable
     }
 
     public init(from decoder: any Decoder) throws {
@@ -21,6 +30,9 @@ public struct CategoryUsage: Codable, Sendable, Equatable {
         label = try c.decode(String.self, forKey: .label)
         bytes = try c.decode(Int64.self, forKey: .bytes)
         partial = try c.decodeIfPresent(Bool.self, forKey: .partial) ?? false
+        // Caches written before the two kinds were told apart: "partial" then meant missing Full Disk Access.
+        fullDiskAccessDenied = try c.decodeIfPresent(Bool.self, forKey: .fullDiskAccessDenied) ?? partial
+        unreadable = try c.decodeIfPresent([String].self, forKey: .unreadable) ?? []
     }
 }
 

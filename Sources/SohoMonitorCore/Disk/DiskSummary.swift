@@ -32,6 +32,16 @@ public enum PathDisplay {
         return path.hasPrefix(prefix) ? "~/" + path.dropFirst(prefix.count) : path
     }
 
+    /// A long path cut in the middle for one line: `~`-relative, the first three components and the leaf kept
+    /// (`~/Library/Application Support/Vendor/…/x.run`); a path of five components or fewer is left whole.
+    public static func short(_ path: String, home: String) -> String {
+        let display = abbreviated(path, home: home)
+        let root = display.hasPrefix("~/") ? "~/" : display.hasPrefix("/") ? "/" : ""
+        let parts = display.dropFirst(root.count).split(separator: "/", omittingEmptySubsequences: true)
+        guard parts.count > 4, let leaf = parts.last else { return display }
+        return root + parts.prefix(3).joined(separator: "/") + "/…/" + leaf
+    }
+
     /// `~` and `~/x` → absolute; a trailing slash is dropped (`du` echoes the path as given). `~user` is left as is.
     public static func expandingTilde(_ path: String, home: String) -> String {
         var result = path
@@ -57,6 +67,8 @@ public struct DiskGroup: Sendable, Equatable, Identifiable {
     public var name: String
     public var bytes: Int64
     public var partial: Bool
+    /// Why the group is partial, nil when it is complete.
+    public var note: PartialNote? = nil
     /// Non-empty categories of the group, biggest first.
     public var items: [CategoryUsage]
     public var colorSlot: ColorSlot
@@ -70,6 +82,51 @@ public struct DiskGroup: Sendable, Equatable, Identifiable {
             lines += items.map { "  \($0.label): \(ByteFormat.short($0.bytes))" }
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+/// Why a scan is partial, and what the card says about it.
+public enum PartialNote: Sendable, Equatable {
+    /// macOS privacy refused some folders: Full Disk Access fixes it. POSIX-unreadable folders, if any, come along.
+    case fullDiskAccess(unreadable: [String])
+    /// Only POSIX permissions refused: these folders are not readable by the user, whatever the privacy settings.
+    case unreadable([String])
+    /// Partial for another reason (no `simctl`): no permission fixes it.
+    case incomplete
+
+    static let posixHeading =
+        "Folders not readable by your user (POSIX permissions; Full Disk Access does not change them):"
+
+    /// The footer text (one line): the Full Disk Access request only when that is what is missing.
+    public func footer(home: String) -> String {
+        switch self {
+        case .fullDiskAccess: "partial: grant Full Disk Access to SohoMonitor"
+        case .incomplete: "partial: some sizes could not be measured"
+        case .unreadable(let folders):
+            "not readable by your user: \(folders.first.map { PathDisplay.short($0, home: home) } ?? "")"
+                + (folders.count > 1 ? " +\(folders.count - 1) more" : "")
+        }
+    }
+
+    /// The hover detail: every unreadable folder, `~`-relative and in full.
+    public func detail(home: String) -> String {
+        func listing(_ folders: [String]) -> [String] {
+            folders.isEmpty ? [] : [Self.posixHeading] + folders.map { PathDisplay.abbreviated($0, home: home) }
+        }
+        let lines: [String] =
+            switch self {
+            case .fullDiskAccess(let folders): ["Some folders need Full Disk Access to be measured."] + listing(folders)
+            case .unreadable(let folders): listing(folders)
+            case .incomplete: ["Some sizes could not be measured (iOS runtimes need Xcode's simctl)."]
+            }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Shown in the warning colour: something the user can act on, or a size that is unknown. POSIX-unreadable
+    /// folders alone are not: the figure is a lower bound by a few locked folders, and nothing in the app can fix it.
+    public var isWarning: Bool {
+        if case .unreadable = self { return false }
+        return true
     }
 }
 
@@ -101,6 +158,7 @@ public enum DiskSummary {
     public static func groups(of snapshot: DiskSnapshot) -> [DiskGroup] {
         var order: [String] = []
         var byName: [String: DiskGroup] = [:]
+        let categoriesByGroup = Dictionary(grouping: snapshot.categories, by: \.group)
         for category in snapshot.categories {
             if byName[category.group] == nil {
                 order.append(category.group)
@@ -124,6 +182,7 @@ public enum DiskSummary {
         return sorted.enumerated().map { index, group in
             var g = group
             g.items.sort { $0.bytes > $1.bytes }
+            g.note = partialNote(of: categoriesByGroup[g.name] ?? [])
             switch g.name {
             case DiskSnapshot.macOSGroup: g.colorSlot = .macOS
             case DiskSnapshot.otherGroup: g.colorSlot = .other
@@ -131,6 +190,16 @@ public enum DiskSummary {
             }
             return g
         }
+    }
+
+    /// Why the scan of these categories is partial, nil when it is complete. A Full Disk Access refusal wins (it is
+    /// the one the user can fix), with the POSIX-unreadable folders still carried for the detail.
+    public static func partialNote(of categories: [CategoryUsage]) -> PartialNote? {
+        guard categories.contains(where: \.partial) else { return nil }
+        var unreadable: [String] = []
+        for folder in categories.flatMap(\.unreadable) where !unreadable.contains(folder) { unreadable.append(folder) }
+        if categories.contains(where: \.fullDiskAccessDenied) { return .fullDiskAccess(unreadable: unreadable) }
+        return unreadable.isEmpty ? .incomplete : .unreadable(unreadable)
     }
 
     /// Width of the full bar in bytes: the disk size, or more when `du` counted clones in full.

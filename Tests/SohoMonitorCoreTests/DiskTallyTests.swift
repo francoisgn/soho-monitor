@@ -73,6 +73,39 @@ private func measure(_ path: String, _ bytes: Int64, _ children: [(String, Int64
         #expect(tally.finish().categories.map(\.partial) == [true, false])
     }
 
+    @Test func accessKindsStickToTheirCategory() {
+        var tally = DiskTally()
+        tally.startCategory(group: "App data", label: "Other apps")
+        tally.add(
+            DuMeasurement(
+                path: "/u/Library/Application Support", bytes: 1 * gb, children: [], partial: true,
+                unreadable: ["/u/Library/Application Support/Vendor/locked"]))
+        tally.add(
+            DuMeasurement(
+                path: "/u/Library/Containers", bytes: 1 * gb, children: [], partial: true,
+                unreadable: ["/u/Library/Containers/x/locked", "/u/Library/Application Support/Vendor/locked"]))
+        tally.startCategory(group: "Mail", label: "Mail")
+        tally.add(
+            DuMeasurement(
+                path: "/u/Library/Mail", bytes: 1 * gb, children: [], partial: true, fullDiskAccessDenied: true))
+        let categories = tally.finish().categories
+        #expect(categories.map(\.fullDiskAccessDenied) == [false, true])
+        // Duplicates across paths of one category are listed once, in order.
+        #expect(
+            categories[0].unreadable == [
+                "/u/Library/Application Support/Vendor/locked", "/u/Library/Containers/x/locked",
+            ])
+        #expect(categories[1].unreadable.isEmpty)
+    }
+
+    @Test func unreadableFoldersAreCappedPerCategory() {
+        var tally = DiskTally()
+        tally.startCategory(group: "App data", label: "Other apps")
+        let many = (0..<(DiskTally.unreadableLimit + 5)).map { "/u/locked/\($0)" }
+        tally.add(DuMeasurement(path: "/u/locked", bytes: 1, children: [], partial: true, unreadable: many))
+        #expect(tally.finish().categories[0].unreadable == Array(many.prefix(DiskTally.unreadableLimit)))
+    }
+
     @Test func specialBytesAreAddedAsIs() {
         var tally = DiskTally()
         tally.startCategory(group: "Dev", label: "iOS runtimes")

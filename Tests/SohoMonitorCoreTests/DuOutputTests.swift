@@ -59,4 +59,61 @@ import Testing
         let m = DuOutput.parse(path: "/r", stdout: "1\t/r\n", stderr: stderr)
         #expect(m.partial == partial)
     }
+
+    @Test func operationNotPermittedIsMissingFullDiskAccess() {
+        // TCC refuses with EPERM: only Full Disk Access lets the app in.
+        let m = DuOutput.parse(
+            path: "/Users/me/Library", stdout: "1\t/Users/me/Library\n",
+            stderr: "du: /Users/me/Library/Mail: Operation not permitted\n")
+        #expect(m.partial)
+        #expect(m.fullDiskAccessDenied)
+        #expect(m.unreadable.isEmpty)
+    }
+
+    @Test func permissionDeniedListsTheFolderWithoutAskingForFullDiskAccess() {
+        // POSIX refuses with EACCES (a root-owned drwx------ folder): Full Disk Access does not help.
+        let stderr = """
+            du: /Users/me/Library/Application Support/Vendor/updater/1234.run: Permission denied
+            du: /Users/me/Library/Application Support/Other: tricky/locked: Permission denied
+            du: /Users/me/Library/Application Support/Vendor/updater/1234.run: Permission denied
+
+            """
+        let m = DuOutput.parse(path: "/Users/me/Library", stdout: "1\t/Users/me/Library\n", stderr: stderr)
+        #expect(m.partial)
+        #expect(!m.fullDiskAccessDenied)
+        #expect(
+            m.unreadable == [
+                "/Users/me/Library/Application Support/Vendor/updater/1234.run",
+                "/Users/me/Library/Application Support/Other: tricky/locked",
+            ])
+    }
+
+    @Test func gnuPermissionDeniedQuotesThePath() {
+        let stderr = """
+            du: cannot read directory '/home/me/locked': Permission denied
+            du: cannot open directory '/home/me/other one': Permission denied
+
+            """
+        let m = DuOutput.parse(path: "/home/me", stdout: "1\t/home/me\n", stderr: stderr)
+        #expect(m.unreadable == ["/home/me/locked", "/home/me/other one"])
+        #expect(!m.fullDiskAccessDenied)
+    }
+
+    @Test func bothKindsKeepTheFullDiskAccessFlagAndTheFolders() {
+        let stderr = """
+            du: /Users/me/Library/Mail: Operation not permitted
+            du: /Users/me/Library/Application Support/Vendor/locked: Permission denied
+
+            """
+        let m = DuOutput.parse(path: "/Users/me/Library", stdout: "1\t/Users/me/Library\n", stderr: stderr)
+        #expect(m.fullDiskAccessDenied)
+        #expect(m.unreadable == ["/Users/me/Library/Application Support/Vendor/locked"])
+    }
+
+    @Test func permissionDeniedWithoutAPathIsStillPartial() {
+        let m = DuOutput.parse(path: "/r", stdout: "1\t/r\n", stderr: "du: Permission denied\n")
+        #expect(m.partial)
+        #expect(!m.fullDiskAccessDenied)
+        #expect(m.unreadable.isEmpty)
+    }
 }

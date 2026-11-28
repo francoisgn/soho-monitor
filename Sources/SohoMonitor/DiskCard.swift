@@ -158,10 +158,12 @@ struct DiskCard: View {
                 }
                 if let error = model.lastScanError {
                     Text("· scan failed: \(error)").foregroundStyle(.red).lineLimit(1)
-                } else if model.snapshot?.categories.contains(where: \.partial) == true {
-                    Text("· ⚠︎ partial: grant Full Disk Access to SohoMonitor")
-                        .foregroundStyle(Palette.warning)
+                } else if let note = model.snapshot.flatMap({ DiskSummary.partialNote(of: $0.categories) }) {
+                    let home = NSHomeDirectory()
+                    Text("· \(note.isWarning ? "⚠︎ " : "")\(note.footer(home: home))")
+                        .foregroundStyle(note.isWarning ? AnyShapeStyle(Palette.warning) : AnyShapeStyle(.tertiary))
                         .lineLimit(1)
+                        .help(note.detail(home: home))
                 }
             }
             .font(.system(size: 10.5, weight: .medium))
@@ -324,8 +326,10 @@ private struct LegendChip: View {
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
-                if group.partial {
-                    Text("⚠︎").foregroundStyle(Palette.warning).help("Partial: some folders could not be read")
+                if let note = group.note {
+                    Text("⚠︎")
+                        .foregroundStyle(note.isWarning ? AnyShapeStyle(Palette.warning) : AnyShapeStyle(.secondary))
+                        .help("Partial: " + note.detail(home: NSHomeDirectory()))
                 }
             }
             .font(.system(size: 11.5, weight: .medium))
