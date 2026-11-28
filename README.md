@@ -80,10 +80,16 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
   nothing. `macOS` = the container's volumes except Data (System, Preboot, Recovery, VM, Update); `Other` = used −
   macOS − everything counted, at least 0 (`du` counts APFS clones in full, so categories can exceed the real use).
   The top 3 of a group are the direct sub-folders of its paths, each net of what was counted at or below it.
-- **Full Disk Access**: without it, protected folders (Mail, Messages, other apps' containers) are read partially:
-  their chip shows ⚠︎ and the footer says so. Grant it to `SohoMonitor.app` in System Settings › Privacy & Security ›
-  Full Disk Access. Signed with your Apple Development certificate (found in the keychain), the grant survives
-  rebuilds; an ad hoc signature (no certificate) changes at every build and needs it again.
+- **Full Disk Access**: without it, protected folders (Mail, Messages, other apps' containers) are read partially
+  (`du`: "Operation not permitted"): their chip shows ⚠︎ and the footer asks for Full Disk Access. A folder your user
+  cannot read whatever the privacy settings (`du`: "Permission denied", e.g. a root-owned `drwx------` folder) is not
+  a Full Disk Access matter: the footer names it instead, in its usual grey and on a line of its own under the update
+  time (`not readable by your user: <folder>`, `~`-relative and cut in the middle when long, `+N more` for several),
+  the chip's ⚠︎ turns grey, and hovering that line or that ⚠︎ lists every such folder. When both happen, the Full Disk Access request wins and the folders are still listed on
+  hover. Without Xcode's `simctl`, the iOS runtimes count 0 and the footer says "partial: some sizes could not be
+  measured". Grant Full Disk Access to `SohoMonitor.app` in System Settings › Privacy & Security › Full Disk Access.
+  Signed with your Apple Development certificate (found in the keychain), the grant survives rebuilds; an ad hoc
+  signature (no certificate) changes at every build and needs it again.
 - **Local Network**: macOS asks once whether SohoMonitor may reach devices on the local network (NAS, UniFi
   controller); without it a LAN host is unreachable (for an IP address: "blocked by macOS Local Network privacy").
   Allow it in System Settings › Privacy & Security › Local Network

@@ -149,19 +149,33 @@ struct DiskCard: View {
 
     private var footer: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
-            HStack(spacing: 6) {
-                if model.isScanning {
-                    ProgressView().controlSize(.mini)
-                    Text("Scanning…")
-                } else if let snapshot = model.snapshot {
-                    Text("Updated \(RelativeAge.string(from: snapshot.updated, now: context.date))")
+            let home = NSHomeDirectory()
+            let note =
+                model.lastScanError == nil
+                ? model.snapshot.flatMap { DiskSummary.partialNote(of: $0.categories) } : nil
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    if model.isScanning {
+                        ProgressView().controlSize(.mini)
+                        Text("Scanning…")
+                    } else if let snapshot = model.snapshot {
+                        Text("Updated \(RelativeAge.string(from: snapshot.updated, now: context.date))")
+                    }
+                    if let error = model.lastScanError {
+                        Text("· scan failed: \(error)").foregroundStyle(.red).lineLimit(1)
+                    } else if let note, note.isWarning {
+                        Text("· ⚠︎ \(note.footer(home: home))")
+                            .foregroundStyle(Palette.warning)
+                            .lineLimit(1)
+                            .help(note.detail(home: home))
+                    }
                 }
-                if let error = model.lastScanError {
-                    Text("· scan failed: \(error)").foregroundStyle(.red).lineLimit(1)
-                } else if model.snapshot?.categories.contains(where: \.partial) == true {
-                    Text("· ⚠︎ partial: grant Full Disk Access to SohoMonitor")
-                        .foregroundStyle(Palette.warning)
-                        .lineLimit(1)
+                // The unreadable folders get a line of their own: a path does not fit after the update time.
+                if let note, !note.isWarning {
+                    Text(note.footer(home: home))
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                        .help(note.detail(home: home))
                 }
             }
             .font(.system(size: 10.5, weight: .medium))
@@ -324,8 +338,10 @@ private struct LegendChip: View {
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
-                if group.partial {
-                    Text("⚠︎").foregroundStyle(Palette.warning).help("Partial: some folders could not be read")
+                if let note = group.note {
+                    Text("⚠︎")
+                        .foregroundStyle(note.isWarning ? AnyShapeStyle(Palette.warning) : AnyShapeStyle(.secondary))
+                        .help("Partial: " + note.detail(home: NSHomeDirectory()))
                 }
             }
             .font(.system(size: 11.5, weight: .medium))

@@ -104,7 +104,8 @@ private let diskutilOutputs: [String: CommandOutput] = [
                 CategoryUsage(group: "Dev", label: "Xcode other", bytes: xcodeOther),
                 CategoryUsage(group: "Cloud", label: "Dropbox", bytes: 3 * 1024),
                 // ~/Library/Developer listed again: already counted, adds nothing.
-                CategoryUsage(group: "Mail", label: "Mail", bytes: 100 * 1024, partial: true),
+                CategoryUsage(
+                    group: "Mail", label: "Mail", bytes: 100 * 1024, partial: true, fullDiskAccessDenied: true),
                 CategoryUsage(group: "macOS", label: "macOS", bytes: macOS),
                 CategoryUsage(group: "Other", label: "Other", bytes: s.used - macOS - counted),
             ])
@@ -123,7 +124,30 @@ private let diskutilOutputs: [String: CommandOutput] = [
     @Test func unavailableSimctlCountsZeroAndFlagsPartial() async throws {
         let scanner = DiskScanner(runner: runner(simctl: out("", "xcrun: error", status: 1)), paths: paths)
         let s = try await scanner.scan(config)
+        // No Xcode is not a Full Disk Access problem.
         #expect(s.categories[0] == CategoryUsage(group: "Dev", label: "iOS runtimes", bytes: 0, partial: true))
+        #expect(!s.categories[0].fullDiskAccessDenied)
+    }
+
+    @Test func aRootOwnedFolderIsNamedWithoutAskingForFullDiskAccess() async throws {
+        // End to end, from du's stderr to the footer: the only refusal is POSIX (EACCES), as with FDA granted.
+        let locked = "/Users/me/Library/Application Support/Vendor/updater/1234.run"
+        var outputs = diskutilOutputs
+        outputs[du("/Users/me/Library/Application Support")] = out(
+            "50\t/Users/me/Library/Application Support\n", "du: \(locked): Permission denied\n", status: 1)
+        let scanner = DiskScanner(
+            runner: FakeRunner(outputs),
+            paths: FakePaths(matches: ["~/Library/Application Support": ["/Users/me/Library/Application Support"]]))
+        let s = try await scanner.scan(
+            DiskConfig(categories: [
+                DiskCategory(
+                    group: "App data", label: "Other apps", source: .paths(["~/Library/Application Support"]))
+            ]))
+        let note = DiskSummary.partialNote(of: s.categories)
+        #expect(note == .unreadable([locked]))
+        #expect(
+            note?.footer(home: "/Users/me")
+                == "not readable by your user: ~/Library/Application Support/Vendor/…/1234.run")
     }
 
     @Test func diskutilFailureFailsTheScan() async {
