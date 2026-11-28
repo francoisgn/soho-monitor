@@ -133,28 +133,13 @@ enum UsageColor {
     }
 }
 
-/// A thin glass capsule filled to the limit's share.
+/// The weekly bar: the panel's thin bar (as on the CPU and memory cards), in the limit's pace colour.
 private struct UsageBar: View {
     let limit: UsageLimit
     let now: Date
 
     var body: some View {
-        GeometryReader { proxy in
-            Capsule()
-                .fill(UsageColor.of(limit.reading(now: now)).gradient)
-                .frame(width: max(limit.percent > 0 ? 4 : 0, proxy.size.width * limit.fraction))
-        }
-        .frame(height: 10)
-        .background(.black.opacity(0.18))
-        .overlay {
-            LinearGradient(
-                colors: [.white.opacity(0.35), .clear, .black.opacity(0.12)], startPoint: .top, endPoint: .bottom
-            )
-            .allowsHitTesting(false)
-        }
-        .clipShape(.capsule)
-        .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-        .animation(.smooth, value: limit.percent)
+        ThinBar(fraction: limit.fraction, tint: UsageColor.of(limit.reading(now: now)), minimumFill: 4)
     }
 }
 

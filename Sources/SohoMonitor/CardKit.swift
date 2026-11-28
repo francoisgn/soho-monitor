@@ -184,22 +184,28 @@ struct InfoPill: View {
     }
 }
 
-/// A thin capsule bar, filled to `fraction` (clamped; nil shows an empty track).
+/// A thin capsule bar, filled to `fraction` (clamped; nil shows an empty track). Every horizontal bar of the panel
+/// is this one, or the disk card's segmented bar drawn with the same height and track.
 struct ThinBar: View {
     /// Shared with the disk card's segmented bar, so both cards' bars look alike.
     static let height: CGFloat = 5
+    /// The empty part of the bar, shared with the disk card's segmented bar.
+    static var track: some ShapeStyle { HierarchicalShapeStyle.primary.opacity(0.10) }
 
     var fraction: Double?
     var tint: Color
+    /// A non-zero fraction is never drawn narrower than this, so a 1 % quota still shows (the Claude card).
+    var minimumFill: CGFloat = 0
 
     var body: some View {
         GeometryReader { proxy in
+            let share = fraction.flatMap(MetricFraction.clamped) ?? 0
             Capsule()
                 .fill(tint.gradient)
-                .frame(width: proxy.size.width * (fraction.flatMap(MetricFraction.clamped) ?? 0))
+                .frame(width: share > 0 ? max(minimumFill, proxy.size.width * share) : 0)
         }
         .frame(height: Self.height)
-        .background(.primary.opacity(0.10), in: .capsule)
+        .background(Self.track, in: .capsule)
         .clipShape(.capsule)
         .animation(.smooth, value: fraction)
     }

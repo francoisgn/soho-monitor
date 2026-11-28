@@ -192,8 +192,8 @@ enum Palette {
     }
 }
 
-/// One continuous thin capsule (the NAS card's bar height): adjoining segments split by a hairline, a single gloss over
-/// the whole bar. Drawn from `DiskBar.layout`, which the hover test reads too, so the highlighted segment is the one
+/// One continuous thin capsule with `ThinBar`'s height and track (CPU, memory, NAS and Claude bars): adjoining segments
+/// split by a hairline, no gloss or border. Drawn from `DiskBar.layout`, which the hover test reads too, so the highlighted segment is the one
 /// under the pointer. The pointer area reaches a few points above and below the bar, which alone is too thin to aim
 /// at.
 private struct SegmentedBar: View {
@@ -228,18 +228,8 @@ private struct SegmentedBar: View {
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
         }
         .frame(height: ThinBar.height)
-        .background(.black.opacity(0.18))
-        .overlay {
-            LinearGradient(
-                stops: [
-                    .init(color: .white.opacity(0.45), location: 0), .init(color: .white.opacity(0.1), location: 0.46),
-                    .init(color: .black.opacity(0.1), location: 0.54), .init(color: .black.opacity(0.18), location: 1),
-                ], startPoint: .top, endPoint: .bottom
-            )
-            .allowsHitTesting(false)
-        }
+        .background(ThinBar.track, in: .capsule)
         .clipShape(.capsule)
-        .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
         // The pointer area, outside the clip: the bar's width, a few points taller than the bar; no layout change.
         .padding(.vertical, Self.pointerSlop)
         .overlay {
