@@ -83,9 +83,9 @@ A desktop card (above the wallpaper, below every window, on all Spaces) and a me
 - **Full Disk Access**: without it, protected folders (Mail, Messages, other apps' containers) are read partially
   (`du`: "Operation not permitted"): their chip shows ⚠︎ and the footer asks for Full Disk Access. A folder your user
   cannot read whatever the privacy settings (`du`: "Permission denied", e.g. a root-owned `drwx------` folder) is not
-  a Full Disk Access matter: the footer names it instead, in its usual grey (`not readable by your user: <folder>`,
-  `~`-relative and cut in the middle when long, `+N more` for several), the chip's ⚠︎ turns grey, and hovering the
-  footer or that ⚠︎ lists every such folder. When both happen, the Full Disk Access request wins and the folders are still listed on
+  a Full Disk Access matter: the footer names it instead, in its usual grey and on a line of its own under the update
+  time (`not readable by your user: <folder>`, `~`-relative and cut in the middle when long, `+N more` for several),
+  the chip's ⚠︎ turns grey, and hovering that line or that ⚠︎ lists every such folder. When both happen, the Full Disk Access request wins and the folders are still listed on
   hover. Without Xcode's `simctl`, the iOS runtimes count 0 and the footer says "partial: some sizes could not be
   measured". Grant Full Disk Access to `SohoMonitor.app` in System Settings › Privacy & Security › Full Disk Access.
   Signed with your Apple Development certificate (found in the keychain), the grant survives rebuilds; an ad hoc
